@@ -19,6 +19,7 @@
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "firebase": "^11.6.0",
+    "framer-motion": "^12.9.2",
     "google-maps": "^4.3.3",
     "lucide-react": "^0.503.0",
     "motion": "^12.7.4",

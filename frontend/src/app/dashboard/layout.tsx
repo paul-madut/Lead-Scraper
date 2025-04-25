@@ -58,7 +58,7 @@ export default function layout({ children: children }: { children: React.ReactNo
     <div
       className={cn(
         " flex w-full max-w-screen flex-1 flex-col overflow-hidden rounded-md border border-neutral-200  bg-gray-100 md:flex-row dark:border-neutral-700 dark:bg-neutral-800",
-        "h-screen", // for your use case, use `h-screen` instead of `h-[60vh]`
+        "h-screen", 
       )}
     >
         <div className="cointainer border-r-2 z-10">
@@ -85,7 +85,7 @@ export default function layout({ children: children }: { children: React.ReactNo
                 href: "#",
                 icon: (
                     <img
-                    src="https://avatars.githubusercontent.com/u/54954818?v=4"
+                    src={user?.providerData[0].photoURL}
                     className="h-7 w-7 shrink-0 rounded-full"
                     width={50}
                     height={50}

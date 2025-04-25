@@ -33,6 +33,7 @@ import {
     searchTerm: string, 
     results: Business[]
   ): Promise<string> {
+    console.log(userId, searchTerm,results)
     try {
       const queryData: SearchQueryDocument = {
         userId,
@@ -51,6 +52,7 @@ import {
   }
   
   export async function getUserSearchHistory(userId: string): Promise<SearchQuery[]> {
+    console.log(userId + " history")
     try {
       const q = firestoreQuery(
         collection(db, "searchQueries"), 
@@ -59,6 +61,7 @@ import {
       );
       
       const querySnapshot = await getDocs(q);
+      console.log(querySnapshot.docs.map(convertDoc))
       return querySnapshot.docs.map(convertDoc);
     } catch (error) {
       console.error("Error fetching search history:", error);

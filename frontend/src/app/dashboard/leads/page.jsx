@@ -63,6 +63,44 @@ function page() {
   return (
     <main className="flex min-h-screen flex-col items-center p-8">
       <h1 className="text-3xl font-bold mb-8">Business Lead Generator</h1>
+
+      <div className="w-full max-w-4xl">
+        <h2 className="text-xl font-bold mb-4">Search History</h2>
+        <ul>
+          {history.map((query) => (
+            <li key={query.id} className="mb-4">
+              <button
+                onClick={() => viewQueryResults(query.id)}
+                className="text-blue-500 hover:underline"
+              >
+                {format(new Date(query.timestamp), "yyyy-MM-dd")}
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        {selectedQuery && (
+          <div className="mt-8">
+            <h2 className="text-xl font-bold mb-4">Query Results</h2>
+            <p>Query: {selectedQuery.searchTerm}</p>
+            <p>Results: {selectedQuery.resultCount}</p>
+            {resultsLoading ? (
+              <p>Loading results...</p>
+            ) : (
+              <ul>
+                {queryResults.map((result) => (
+                  <li key={result.id} className="mb-4">
+                    <p>{result.name}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+          </div>
+
+        )}
+
+      </div>
     </main>
   );
 }

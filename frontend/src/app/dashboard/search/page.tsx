@@ -2,22 +2,24 @@
 "use client";
 
 import { useState } from 'react';
-import SearchForm from './Search';
+import Search from './Search';
 import ResultsTable from '@/components/ResultsTable';
 import ExportButton from '@/components/ExportButton';
 import { Business } from '@/lib/types';
+
 
 export default function Home() {
   const [results, setResults] = useState<Business[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+ 
 
   return (
     <main className="flex min-h-screen flex-col items-center p-8">
       <h1 className="text-3xl font-bold mb-8">Business Lead Generator</h1>
       
       <div className="w-full max-w-4xl">
-        <SearchForm 
+        <Search 
           onSearchStart={() => {
             setIsLoading(true);
             setError(null);

@@ -2,10 +2,10 @@
 import React, { useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { signInWithPopup } from 'firebase/auth';
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation';
 const page = () => {
   const { user, signInWithGoogle, signOut, loading } = useAuth();
-  const router = useRouter();
+  const router = useRouter()
 
   const login = async () => {
     try {
@@ -14,9 +14,7 @@ const page = () => {
       console.error("Error signing in with Google", error);
       throw error;
     }
-    if(user){
-        router.push('/dashboard')
-    }
+
     console.log("button")
     console.log(user);
 

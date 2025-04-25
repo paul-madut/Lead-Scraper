@@ -3,6 +3,8 @@
 
 import { useState } from 'react';
 import { SearchResponse } from '@/lib/types';
+import { saveSearchQuery } from '@/services/query';
+import { useAuth } from '@/components/AuthProvider';
 
 interface SearchFormProps {
   onSearchStart: () => void;
@@ -15,6 +17,8 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
   const [location, setLocation] = useState('');
   const [radius, setRadius] = useState('5000');
   const [maxResults, setMaxResults] = useState('20');
+  const { user } = useAuth();
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +56,18 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
       
       const data = await response.json();
       onSearchComplete(data);
+      
+      if (user) {
+        try {
+          await saveSearchQuery(user.uid, 
+            keyword,
+            data.businesses,
+          );
+          console.log('Search query saved successfully');
+        } catch (saveError) {
+          console.error('Error saving search query:', saveError);
+        }
+      }
     } catch (error) {
       onSearchError(error instanceof Error ? error.message : 'An unknown error occurred');
     }

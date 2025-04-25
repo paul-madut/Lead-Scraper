@@ -1,7 +1,7 @@
 "use client";
 import React from 'react'
 
-import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
+import { Sidebar, SidebarBody, SidebarLink, SidebarButton } from "@/components/ui/sidebar";
 import { useAuth } from '@/components/AuthProvider';
 import {
   IconArrowLeft,
@@ -49,13 +49,7 @@ export default function layout({ children: children }: { children: React.ReactNo
         <IconSettings className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
     },
-    {
-        label: "Logout",
-        href: "#",
-        icon: (
-          <IconArrowLeft className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
-        ),
-      },
+    
   ];
   
   
@@ -77,6 +71,11 @@ export default function layout({ children: children }: { children: React.ReactNo
               {links.map((link, idx) => (
                   <SidebarLink key={idx} link={link} />
               ))}
+              <SidebarButton
+                link={{ label: "Logout", href: "#", icon: <IconArrowLeft className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200 cursor-pointer"  /> }}>
+                
+
+              </SidebarButton>
             </div>
           </div>
           <div>

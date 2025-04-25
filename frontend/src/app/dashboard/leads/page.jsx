@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { getUserSearchHistory, getSearchResultsById } from "@/services/query";
 import { format } from "date-fns";
+import Link from "next/link";
 
 function page() {
   const { user } = useAuth();
@@ -69,12 +70,9 @@ function page() {
         <ul>
           {history.map((query) => (
             <li key={query.id} className="mb-4">
-              <button
-                onClick={() => viewQueryResults(query.id)}
-                className="text-blue-500 hover:underline"
-              >
-                {format(new Date(query.timestamp), "yyyy-MM-dd")}
-              </button>
+              <Link className="hover:underline" href={`/dashboard/leads/${query.id}`}>
+              <a>{query.searchTerm}</a> {format(new Date(query.timestamp), "yyyy-MM-dd")}
+              </Link>
             </li>
           ))}
         </ul>

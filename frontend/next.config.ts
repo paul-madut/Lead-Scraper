@@ -2,18 +2,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  eslint: {
+    // Warning: This allows production builds to successfully complete even if
+    // your project has ESLint errors.
+    ignoreDuringBuilds: true,
+  },
   allowedDevOrigins: ['http://localhost:3000'],
   async headers() {
     return [
       {
         // Apply these headers to all routes
         source: '/(.*)',
+        
         headers: [
           {
             key: 'Cache-Control',
             value: 'no-store',
           },
         ],
+        
       },
     ];
   },

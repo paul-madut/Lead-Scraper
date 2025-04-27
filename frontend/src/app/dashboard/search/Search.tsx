@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { SearchResponse } from '@/lib/types';
 import { saveSearchQuery } from '@/services/query';
 import { useAuth } from '@/components/AuthProvider';
-
+import { useRouter } from 'next/navigation';
 interface SearchFormProps {
   onSearchStart: () => void;
   onSearchComplete: (data: SearchResponse) => void;
@@ -18,7 +18,7 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
   const [radius, setRadius] = useState('5000');
   const [maxResults, setMaxResults] = useState('20');
   const { user } = useAuth();
-
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +66,9 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
           console.log('Search query saved successfully');
         } catch (saveError) {
           console.error('Error saving search query:', saveError);
+        }
+        finally {
+          router.push('/dashboard');
         }
       }
     } catch (error) {

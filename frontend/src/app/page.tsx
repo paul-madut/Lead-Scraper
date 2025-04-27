@@ -272,7 +272,7 @@ export default function Home() {
                   <div className="w-full h-96 bg-blue-100 rounded-2xl overflow-hidden">
                     <div className="absolute inset-0 flex items-center justify-center">
                       <img 
-                        src="/api/placeholder/600/400" 
+                        src="/image.png" 
                         alt="B2Lead Dashboard Preview" 
                         className="rounded-lg shadow-xl"
                       />

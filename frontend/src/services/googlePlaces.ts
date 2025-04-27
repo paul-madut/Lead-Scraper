@@ -41,7 +41,7 @@ export class GooglePlacesService {
       const detailsUrl = `${this.baseUrl}/details/json`;
       const params = new URLSearchParams({
         place_id: placeId,
-        fields: "name,formatted_address,formatted_phone_number,website,url,business_status",
+        fields: "name,formatted_address,formatted_phone_number,website,url,business_status,user_ratings_total,photos,rating",
         key: this.apiKey
       });
       
@@ -62,7 +62,10 @@ export class GooglePlacesService {
         website: result.website || "",
         maps_url: result.url || "",
         place_id: placeId,
-        business_status: result.business_status || "OPERATIONAL"
+        business_status: result.business_status || "OPERATIONAL",
+        total_reviews: result.user_ratings_total || null,
+        image_url: result.photos?.[0]?.photo_reference || null,
+        rating: result.rating || null
       };
     } catch (error) {
       console.error("Error fetching business details:", error);

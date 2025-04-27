@@ -6,6 +6,7 @@ import { getUserSearchHistory, getSearchResultsById } from "@/services/query";
 import { format } from "date-fns";
 import Link from "next/link";
 
+
 function page() {
   const { user } = useAuth();
   const [history, setHistory] = useState();
@@ -62,18 +63,26 @@ function page() {
 
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-8">
+    <main className="flex min-h-screen w-screen flex-col items-center p-8">
       <h1 className="text-3xl font-bold mb-8">Business Lead Generator</h1>
 
-      <div className="w-full max-w-4xl">
+      <div className="w-full max-w-1/2">
         <h2 className="text-xl font-bold mb-4">Search History</h2>
         <ul>
           {history.map((query) => (
-            <li key={query.id} className="mb-4">
-              <Link className="hover:underline" href={`/dashboard/leads/${query.id}`}>
-              <a>{query.searchTerm}</a> {format(new Date(query.timestamp), "yyyy-MM-dd")}
-              </Link>
-            </li>
+            <li key={query.id} className="mb-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-300">
+            <Link className="block " href={`/dashboard/leads/${query.id}`}>
+              <div className="flex items-center justify-between p-4">
+                <div className="flex flex-col">
+                  <span  className="text-lg font-medium text-blue-600 capitalize">{query.searchTerm}</span>
+                  <span className="text-sm text-gray-500">{query.resultCount} results</span>
+                </div>
+                <div className="text-sm text-gray-400">
+                  {format(new Date(query.timestamp), "yyyy-MM-dd")}
+                </div>
+              </div>
+            </Link>
+          </li>
           ))}
         </ul>
 

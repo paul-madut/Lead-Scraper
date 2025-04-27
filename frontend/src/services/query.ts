@@ -8,6 +8,7 @@ import {
     orderBy, 
     Timestamp,
     doc,
+    limit,
     getDoc, 
     DocumentData,
     QueryDocumentSnapshot
@@ -68,7 +69,24 @@ import {
       throw error;
     }
   }
-  
+
+  export async function getMostRecentUserSearch(userId: string): Promise<SearchQuery[]> {
+    console.log(userId + " history");
+    try {
+      const q = firestoreQuery(
+        collection(db, "searchQueries"),
+        where("userId", "==", userId),
+        orderBy("timestamp", "desc"),
+        limit(1) // Add this to get only the most recent entry
+      );
+      const querySnapshot = await getDocs(q);
+      console.log(querySnapshot.docs.map(convertDoc));
+      return querySnapshot.docs.map(convertDoc);
+    } catch (error) {
+      console.error("Error fetching search history:", error);
+      throw error;
+    }
+  }
   export async function getSearchResultsById(queryId: string): Promise<SearchQuery> {
     try {
       const docRef = doc(db, "searchQueries", queryId);

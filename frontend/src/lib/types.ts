@@ -6,6 +6,9 @@ export type Business = {
   maps_url?: string;
   place_id: string;
   business_status?: string;
+  total_reviews?: number;
+  image_url?: string;
+  rating?: number;
 };
 
 export interface SearchResponse {

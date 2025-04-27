@@ -46,15 +46,7 @@ export default function Home() {
           </div>
         )}
 
-        {results.length > 0 && (
-          <div className="mt-8">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Found {results.length} businesses</h2>
-              <ExportButton data={results} />
-            </div>
-            <ResultsTable businesses={results} />
-          </div>
-        )}
+        
       </div>
     </main>
   );

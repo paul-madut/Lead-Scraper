@@ -1,14 +1,15 @@
 "use client"
-import React, { useEffect } from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { signInWithPopup } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
-import Head from 'next/head';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+
 const page = () => {
-  const { user, signInWithGoogle, signOut, loading } = useAuth();
-  const router = useRouter()
+  const { user, signInWithGoogle, loading, authError } = useAuth();
+  const router = useRouter();
+  const [authAttempted, setAuthAttempted] = useState(false);
 
   const fadeIn = {
     hidden: { opacity: 0, y: 20 },
@@ -31,31 +32,32 @@ const page = () => {
     }
   };
 
-  const login = async () => {
-    try {
-      await signInWithGoogle();
-    } catch (error) {
-      console.error("Error signing in with Google", error);
-      throw error;
-    }
-
-    console.log("button")
-    console.log(user);
-
-  };
-
+  // Effect to handle redirection when user state changes
   useEffect(() => {
-    if (user) {
+    console.log("User state in login page:", user?.email || 'No user');
+    
+    // Only redirect if we have a user and we're not still loading
+    if (user && !loading) {
+      console.log("Redirecting to dashboard");
       router.push('/dashboard');
     }
-  }, [user]);
+  }, [user, loading, router]);
+
+  // Handle the sign-in button click
+  const handleSignIn = async () => {
+    try {
+      setAuthAttempted(true);
+      console.log("Initiating Google sign-in");
+      await signInWithGoogle();
+      // We won't reach here until after redirect completes
+    } catch (error) {
+      console.error("Sign-in failed:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-blue-50 flex flex-col">
-      <Head>
-        <title>Log In - B2Lead | Lead Generation for Web Professionals</title>
-        <meta name="description" content="Log in to B2Lead to access your leads dashboard." />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
+      {/* Next.js App Router handles metadata in layout or a separate metadata file */}
 
       {/* Header */}
       <header className="py-4 bg-white shadow-sm">
@@ -86,13 +88,26 @@ const page = () => {
           </div>
           
           <div className="space-y-6">
+            {/* Show error if there is one and we've attempted auth */}
+            {authError && authAttempted && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+                Authentication failed: {authError.message || 'Please try again.'}
+              </div>
+            )}
             
+            {/* Show loading indicator if we're in the middle of the auth process */}
+            {loading && authAttempted && (
+              <div className="p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-md text-sm flex items-center">
+                <div className="w-4 h-4 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin mr-2"></div>
+                Authentication in progress...
+              </div>
+            )}
             
             <motion.button
               variants={pulse}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.98 }}
-              onClick={login}
+              onClick={handleSignIn}
               disabled={loading}
               className="w-full flex items-center justify-center bg-white border border-gray-300 rounded-md px-4 py-3 space-x-3 shadow-sm hover:shadow-md transition-all duration-200 relative"
             >

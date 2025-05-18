@@ -1,7 +1,7 @@
 // pages/latest-search.js
 "use client";
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../components/AuthProvider'; // Assuming you have an auth context
+import { useAuth } from '../../components/AuthProvider';
 import { getMostRecentUserSearch } from '../../services/query';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -9,16 +9,16 @@ import Link from 'next/link';
 export default function LatestSearch() {
   const [query, setQuery] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth(); // Assuming you have an auth context to get current user
+  const { user } = useAuth();
 
   useEffect(() => {
     async function fetchLatestQuery() {
-      if (!user?.uid) return; // Wait until we have a user ID
-      
+      if (!user?.uid) return;
+
       try {
         const latestQueries = await getMostRecentUserSearch(user.uid);
         if (latestQueries && latestQueries.length > 0) {
-          setQuery(latestQueries[0]); // Get the first (most recent) query
+          setQuery(latestQueries[0]);
         } else {
           console.log("No search queries found for this user");
         }
@@ -28,46 +28,45 @@ export default function LatestSearch() {
         setLoading(false);
       }
     }
-    
+
     fetchLatestQuery();
   }, [user]);
 
   if (loading) return <div className="max-w-6xl mx-auto p-6">Loading...</div>;
-  
-  if (!query) return (
-    <div className="max-w-6xl mx-auto p-6">
-      <h1 className="text-4xl font-bold mb-4">No Recent Searches</h1>
-      <p className="text-lg mb-8">
-        You haven't performed any searches yet.
-      </p>
-      <Link href="/search" className="px-4 py-2 bg-blue-500 text-white rounded-full font-medium">
-        Start Searching
-      </Link>
-    </div>
-  );
+
+  if (!query) {
+    return (
+      <div className="max-w-6xl mx-auto p-6">
+        <h1 className="text-4xl font-bold mb-4">No Recent Searches</h1>
+        <p className="text-lg mb-8">
+          You haven't performed any searches yet.
+        </p>
+        <Link href="/search" className="px-4 py-2 bg-blue-500 text-white rounded-full font-medium">
+          Start Searching
+        </Link>
+      </div>
+    );
+  }
 
   const website_counter = query.results.reduce((count, business) => {
-    if (!business.website) {
-      return count + 1;
-    }
-    return count;
+    return !business.website ? count + 1 : count;
   }, 0);
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="max-w-6xl mx-auto p-6 md:h-screen">
       <h1 className="text-4xl font-bold mb-4">Your Latest Search</h1>
-      
+
       <div className="mb-4">
         <h2 className="text-2xl font-semibold capitalize">{query.searchTerm}</h2>
         <p className="text-gray-500">
           {new Date(query.timestamp).toLocaleString()}
         </p>
       </div>
-      
+
       <p className="text-lg mb-8">
         {query.results.length} businesses found, {website_counter} without a website 
       </p>
-      
+
       <div className="flex gap-2 mb-8">
         <button className="px-4 py-2 hover:bg-blue-500 hover:text-white bg-white rounded-full shadow-md font-medium">
           Without website
@@ -80,8 +79,8 @@ export default function LatestSearch() {
         </Link>
       </div>
 
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <div className="grid grid-cols-16 border-b pb-3 mb-2 font-medium text-gray-500">
+      <div className="bg-white rounded-xl shadow-md p-6 overflow-y-scroll max-h-1/2 pb-4 ">
+        <div className="grid grid-cols-16 border-b pb-3 mb-2 font-medium text-gray-500 sticky top-0">
           <div className="col-span-4">NAME</div>
           <div className="col-span-2"></div>
           <div className="col-span-3 text-center">TOTAL REVIEWS</div>
@@ -93,14 +92,18 @@ export default function LatestSearch() {
         {query.results.map((business) => (
           <div key={business.place_id} className="grid grid-cols-16 border-b py-3">
             <div className="col-span-2">
-              {business.image_url && (
-                <Image
-                  // src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${business.image_url}&key=AIzaSyBZ4E0xOyqYBw5oTtD7c9t4hI3tW0vT6ZI`}
+              {business.photo_reference ? (
+                <img
+                  src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${business.photo_reference}&key=AIzaSyBZ4E0xOyqYBw5oTtD7c9t4hI3tW0vT6ZI`}
                   alt={business.name}
-                  className="w-12 h-12 rounded-full"
+                  className="w-12 h-12 rounded-full object-cover"
                   width={50}
                   height={50}
                 />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs">
+                  N/A
+                </div>
               )}
             </div>
             <div className="col-span-4">{business.name}</div>

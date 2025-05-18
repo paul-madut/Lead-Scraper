@@ -208,9 +208,9 @@ export default function Home() {
           {/* Mobile menu */}
           {isMenuOpen && (
             <motion.div 
-              initial={{ opacity: 0, height: 0 }}
+              initial={{ opacity: 0.5, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
-              className="md:hidden mt-4 pb-4"
+              className="md:hidden mt-4 pb-4 bg-white/70"
             >
               <nav className="flex flex-col space-y-4">
                 <a href="#features" className="text-gray-700 hover:text-blue-600 transition-colors">Features</a>

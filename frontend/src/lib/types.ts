@@ -1,3 +1,4 @@
+import { AuthError } from "firebase/auth";
 export type Business = {
   name: string;
   address: string;
@@ -28,6 +29,7 @@ export interface AuthContextType {
   loading: boolean;
   signInWithGoogle: () => Promise<any>;
   signOut: () => Promise<void>;
+  authError: AuthError | null;
 }
 
 export interface SearchQuery {
@@ -46,4 +48,41 @@ export interface SearchQueryDocument {
   timestamp: any; 
   resultCount: number;
   results: Business[];
+}
+
+export interface TokenCheckRequest {
+  requestedTokens: number;
+}
+
+export interface TokenCheckResponse {
+  sufficient: boolean;
+  currentBalance: number;
+  requested: number;
+}
+
+export interface TokenDeductRequest {
+  tokensToDeduct: number;
+  searchParams: SearchQuery;
+}
+
+export interface TokenDeductResponse {
+  success: boolean;
+  newBalance: number;
+}
+
+export interface TokenHistoryEntry {
+  amount: number;
+  timestamp: Date;
+  type: string;
+  details: {
+    keyword: string;
+    location: string;
+    radius: number;
+    max_results: number;
+  };
+  resultsFound?: number;
+}
+export interface UserTokenData {
+  tokens: number;
+  tokenHistory?: TokenHistoryEntry[];
 }

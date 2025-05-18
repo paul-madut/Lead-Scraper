@@ -8,6 +8,10 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   allowedDevOrigins: ['http://localhost:3000'],
+  images: {
+    domains: ['firebasestorage.googleapis.com,','maps.googleapis.com'],
+
+  },
   async headers() {
     return [
       {
@@ -21,6 +25,15 @@ const nextConfig = {
           },
         ],
         
+      },
+    ];
+  },
+  async rewrites() {
+    return [
+      {
+        // Rewrite requests to /__/auth/* to the Firebase Auth domain
+        source: '/__/auth/:path*',
+        destination: `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebaseapp.com/__/auth/:path*`,
       },
     ];
   },

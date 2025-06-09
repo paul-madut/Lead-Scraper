@@ -41,7 +41,7 @@ export default function LatestSearch() {
         <p className="text-lg mb-8">
           You haven't performed any searches yet.
         </p>
-        <Link href="/search" className="px-4 py-2 bg-blue-500 text-white rounded-full font-medium">
+        <Link href="/dashboard/search" className="px-4 py-2 bg-blue-500 text-white rounded-full font-medium">
           Start Searching
         </Link>
       </div>
@@ -80,7 +80,7 @@ export default function LatestSearch() {
       </div>
 
       <div className="bg-white rounded-xl shadow-md p-6 overflow-y-scroll max-h-1/2 pb-4 ">
-        <div className="grid grid-cols-16 border-b pb-3 mb-2 font-medium text-gray-500 sticky top-0">
+        <div className="grid grid-cols-16 border-b pb-3 mb-2 font-medium text-gray-500 sticky top-0 p-4 bg-white/80">
           <div className="col-span-4">NAME</div>
           <div className="col-span-2"></div>
           <div className="col-span-3 text-center">TOTAL REVIEWS</div>

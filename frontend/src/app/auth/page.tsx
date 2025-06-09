@@ -49,6 +49,7 @@ const page = () => {
       setAuthAttempted(true);
       console.log("Initiating Google sign-in");
       await signInWithGoogle();
+
       // We won't reach here until after redirect completes
     } catch (error) {
       console.error("Sign-in failed:", error);

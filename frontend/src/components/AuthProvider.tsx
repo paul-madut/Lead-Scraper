@@ -13,6 +13,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/firebase/config';
 import { AuthContextType } from '@/lib/types';
+import { createTokenDocument } from '@/services/tokenService';
 
 // Detect browser environment
 const isMobile = () => {
@@ -67,6 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } finally {
         setInitialCheckDone(true);
         setLoading(false);
+        if (user){
+          console.log(user.uid + "User signed in");
+          await createTokenDocument(user.uid);
+        }
       }
     };
 
@@ -119,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRedirectInProgress(true);
         // This will redirect the page, so we'll lose this execution context
         await signInWithRedirect(auth, provider);
+
         // We won't reach here until after redirect returns
         return null;
       }

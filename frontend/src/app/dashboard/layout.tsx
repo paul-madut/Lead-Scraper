@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-
+import Navbar from "@/components/Navbar";
 import {
   Sidebar,
   SidebarBody,
@@ -66,6 +66,8 @@ export default function layout({
       )}
     >
       <div className="cointainer border-r-2 z-10 ">
+        
+
         <Sidebar open={open} setOpen={setOpen}>
           <SidebarBody className="justify-between gap-10 z-30">
             <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-hidden">
@@ -105,7 +107,9 @@ export default function layout({
           </SidebarBody>
         </Sidebar>
       </div>
-      <div className="dashboard overflow-hidden">
+      <div className="dashboard overflow-hidden w-screen">
+      <Navbar/>
+
       <Dashboard children={children} />
 
       </div>

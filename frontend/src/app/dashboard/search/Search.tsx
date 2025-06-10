@@ -13,6 +13,14 @@ interface SearchFormProps {
   onSearchError: (error: string) => void;
 }
 
+// Pricing configuration (should match backend)
+const PRICING_CONFIG = {
+  BASE_SEARCH_COST: 1,
+  COST_PER_RESULT: 1,
+  MIN_CHARGE: 5,
+  MAX_RESULTS_LIMIT: 100
+};
+
 export default function Search({ onSearchStart, onSearchComplete, onSearchError }: SearchFormProps) {
   const [keyword, setKeyword] = useState('');
   const [location, setLocation] = useState('');
@@ -21,8 +29,19 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
   const [userTokens, setUserTokens] = useState<number | null>(null);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [estimatedCost, setEstimatedCost] = useState(0);
   const { user } = useAuth();
   const router = useRouter();
+
+  // Calculate estimated cost whenever maxResults changes
+  useEffect(() => {
+    const requestedResults = parseInt(maxResults) || 20;
+    const cost = Math.max(
+      PRICING_CONFIG.BASE_SEARCH_COST + (requestedResults * PRICING_CONFIG.COST_PER_RESULT),
+      PRICING_CONFIG.MIN_CHARGE
+    );
+    setEstimatedCost(cost);
+  }, [maxResults]);
 
   // Fetch user's token balance
   useEffect(() => {
@@ -69,8 +88,8 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
     const requestedResults = parseInt(maxResults);
     
     // Pre-flight token check (client-side validation)
-    if (userTokens !== null && userTokens < requestedResults) {
-      onSearchError(`Insufficient tokens. You have ${userTokens} tokens but need ${requestedResults} tokens for this search.`);
+    if (userTokens !== null && userTokens < estimatedCost) {
+      onSearchError(`Insufficient tokens. You have ${userTokens} tokens but need at least ${estimatedCost} tokens for this search (up to ${requestedResults} results).`);
       return;
     }
     
@@ -86,7 +105,7 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`, // Add the Bearer token
+          'Authorization': `Bearer ${idToken}`,
         },
         body: JSON.stringify({
           keyword: keyword.trim(),
@@ -138,29 +157,42 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
   };
 
   // Calculate if user has enough tokens
-  const requestedResults = parseInt(maxResults) || 20;
-  const hasEnoughTokens = userTokens !== null && userTokens >= requestedResults;
+  const hasEnoughTokens = userTokens !== null && userTokens >= estimatedCost;
 
   return (
     <form onSubmit={handleSubmit} className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
       {user && (
-        <div className="mb-4 flex justify-between items-center">
-          <div className="token-display">
-            <span className="text-gray-700 font-bold">Available Tokens:</span>
-            {isLoadingTokens ? (
-              <span className="ml-2 text-blue-500">Loading...</span>
-            ) : (
-              <span className={`ml-2 font-bold ${hasEnoughTokens ? 'text-blue-600' : 'text-red-600'}`}>
-                {userTokens !== null ? userTokens.toLocaleString() : 0}
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+          <div className="flex justify-between items-center mb-2">
+            <div className="token-display">
+              <span className="text-gray-700 font-bold">Available Tokens:</span>
+              {isLoadingTokens ? (
+                <span className="ml-2 text-blue-500">Loading...</span>
+              ) : (
+                <span className={`ml-2 font-bold ${hasEnoughTokens ? 'text-blue-600' : 'text-red-600'}`}>
+                  {userTokens !== null ? userTokens.toLocaleString() : 0}
+                </span>
+              )}
+            </div>
+            
+            <div className="token-cost">
+              <span className="text-gray-700">Estimated Cost:</span>
+              <span className="ml-2 text-blue-600 font-bold">
+                {estimatedCost} tokens
               </span>
-            )}
+            </div>
           </div>
           
-          <div className="token-cost">
-            <span className="text-gray-700">Cost:</span>
-            <span className="ml-2 text-blue-600 font-bold">
-              {requestedResults} tokens
-            </span>
+          {/* Cost breakdown */}
+          <div className="text-sm text-gray-600 mt-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div>Base cost: {PRICING_CONFIG.BASE_SEARCH_COST} token</div>
+              <div>Per result: {PRICING_CONFIG.COST_PER_RESULT} token</div>
+              <div>Min charge: {PRICING_CONFIG.MIN_CHARGE} tokens</div>
+            </div>
+            <div className="mt-1 text-xs">
+              * You'll only be charged for actual results returned (minimum {PRICING_CONFIG.MIN_CHARGE} tokens)
+            </div>
           </div>
         </div>
       )}
@@ -221,7 +253,7 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
             id="maxResults"
             type="number"
             min="1"
-            max="100"
+            max={PRICING_CONFIG.MAX_RESULTS_LIMIT}
             value={maxResults}
             onChange={(e) => setMaxResults(e.target.value)}
             disabled={isSearching}
@@ -230,13 +262,13 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
       </div>
       
       {user && !hasEnoughTokens && userTokens !== null && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded border border-red-300">
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
           <div className="flex items-center">
             <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
             <span>
-              Insufficient tokens. You have {userTokens} tokens but need {requestedResults} tokens for this search.
+              Insufficient tokens. You have {userTokens} tokens but need at least {estimatedCost} tokens for this search.
             </span>
           </div>
         </div>

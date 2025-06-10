@@ -1,8 +1,7 @@
-// app/api/search/route.ts
+// app/api/search/route.ts - Fixed to properly import admin services
 import { NextResponse, NextRequest } from 'next/server';
 import { BusinessLeadService } from '@/services/businessLead';
-import { getTokenBalance, deductTokens } from '@/services/tokenService';
-import { adminAuth } from '@/lib/firebase-admin';
+import { AdminTokenService } from '@/services/adminTokenService';
 
 interface SearchRequest {
   keyword: string;
@@ -20,8 +19,14 @@ interface SearchResponse {
     radius: number;
     max_results: number;
     results_count: number;
-    tokens_used: number;
+    tokens_charged: number;
     remaining_tokens: number;
+    cost_breakdown: {
+      base_cost: number;
+      per_result_cost: number;
+      actual_results: number;
+      total_cost: number;
+    };
   };
 }
 
@@ -30,6 +35,14 @@ interface ErrorResponse {
   currentTokens?: number;
   requiredTokens?: number;
 }
+
+// Pricing configuration
+const PRICING_CONFIG = {
+  BASE_SEARCH_COST: 1,
+  COST_PER_RESULT: 1,
+  MIN_CHARGE: 5,
+  MAX_RESULTS_LIMIT: 100
+};
 
 export async function POST(request: NextRequest): Promise<NextResponse<SearchResponse | ErrorResponse>> {
   try {
@@ -46,9 +59,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<SearchRes
     // Extract the ID token
     const idToken = authHeader.split('Bearer ')[1];
     
-    // Verify the Firebase ID token
+    // Verify the Firebase ID token using Admin SDK
     let decodedToken;
     try {
+      // Dynamic import to ensure it only runs on server
+      const { adminAuth } = await import('@/lib/firebase-admin');
       decodedToken = await adminAuth.verifyIdToken(idToken);
     } catch (authError) {
       console.error('Token verification failed:', authError);
@@ -72,13 +87,16 @@ export async function POST(request: NextRequest): Promise<NextResponse<SearchRes
     }
 
     // Validate and sanitize numeric inputs
-    const maxResults: number = Math.min(Math.max(parseInt(String(data.max_results)) || 20, 1), 100);
+    const maxResults: number = Math.min(
+      Math.max(parseInt(String(data.max_results)) || 20, 1), 
+      PRICING_CONFIG.MAX_RESULTS_LIMIT
+    );
     const radius: number = Math.min(Math.max(parseInt(String(data.radius)) || 5000, 100), 50000);
 
-    // Check token balance
+    // Check token balance using Admin SDK
     let currentTokens: number;
     try {
-      currentTokens = await getTokenBalance(userId);
+      currentTokens = await AdminTokenService.getTokenBalance(userId);
     } catch (tokenError) {
       console.error('Failed to get token balance:', tokenError);
       return NextResponse.json(
@@ -87,14 +105,18 @@ export async function POST(request: NextRequest): Promise<NextResponse<SearchRes
       );
     }
 
-    // Calculate cost (assuming 1 token per result requested)
-    const tokenCost: number = maxResults;
+    // Calculate estimated cost
+    const estimatedCost = Math.max(
+      PRICING_CONFIG.BASE_SEARCH_COST + (maxResults * PRICING_CONFIG.COST_PER_RESULT),
+      PRICING_CONFIG.MIN_CHARGE
+    );
     
-    if (currentTokens < tokenCost) {
+    // Pre-flight token check
+    if (currentTokens < estimatedCost) {
       return NextResponse.json({
-        error: `Insufficient tokens. You have ${currentTokens} tokens but need ${tokenCost} tokens for this search.`,
+        error: `Insufficient tokens. You have ${currentTokens} tokens but need at least ${estimatedCost} tokens for this search (up to ${maxResults} results).`,
         currentTokens,
-        requiredTokens: tokenCost
+        requiredTokens: estimatedCost
       }, { status: 403 });
     }
 
@@ -127,29 +149,23 @@ export async function POST(request: NextRequest): Promise<NextResponse<SearchRes
       );
     }
 
-    // Deduct tokens based on the cost model (charge for the request, not just results)
+    // Calculate actual cost based on results
     const actualResults: number = businesses?.length || 0;
-    const tokensToDeduct: number = tokenCost;
-    
-    if (tokensToDeduct > 0) {
-      try {
-        await deductTokens(userId, tokensToDeduct);
-      } catch (deductError) {
-        console.error('Failed to deduct tokens:', deductError);
-        return NextResponse.json(
-          { error: 'Failed to process token deduction. Please try again.' },
-          { status: 500 }
-        );
-      }
-    }
+    const actualCost = Math.max(
+      PRICING_CONFIG.BASE_SEARCH_COST + (actualResults * PRICING_CONFIG.COST_PER_RESULT),
+      PRICING_CONFIG.MIN_CHARGE
+    );
 
-    // Get updated token balance
+    // Deduct tokens using Admin SDK
     let updatedTokens: number;
     try {
-      updatedTokens = await getTokenBalance(userId);
-    } catch (balanceError) {
-      console.error('Failed to get updated balance:', balanceError);
-      updatedTokens = currentTokens - tokensToDeduct; // Fallback calculation
+      updatedTokens = await AdminTokenService.deductTokens(userId, actualCost);
+    } catch (deductError) {
+      console.error('Failed to deduct tokens:', deductError);
+      return NextResponse.json(
+        { error: 'Failed to process token deduction. Please try again.' },
+        { status: 500 }
+      );
     }
 
     const response: SearchResponse = {
@@ -161,8 +177,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<SearchRes
         radius: radius,
         max_results: maxResults,
         results_count: actualResults,
-        tokens_used: tokensToDeduct,
-        remaining_tokens: updatedTokens
+        tokens_charged: actualCost,
+        remaining_tokens: updatedTokens,
+        cost_breakdown: {
+          base_cost: PRICING_CONFIG.BASE_SEARCH_COST,
+          per_result_cost: PRICING_CONFIG.COST_PER_RESULT,
+          actual_results: actualResults,
+          total_cost: actualCost
+        }
       }
     };
 

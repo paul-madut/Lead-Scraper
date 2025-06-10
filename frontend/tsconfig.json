@@ -22,6 +22,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/dashboard/page.jsx", "src/app/dashboard/leads/[id].jsx", "src/app/dashboard/leads/page.jsx", "src/hooks/useTokens.jsx", "src/firebase/functions.js", "src/app/api/search/route.js"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/dashboard/page.jsx", "src/app/dashboard/leads/[id].jsx", "src/app/dashboard/leads/page.tsx", "src/hooks/useTokens.jsx", "src/firebase/functions.js", "src/app/api/search/route.js"],
   "exclude": ["node_modules"]
 }

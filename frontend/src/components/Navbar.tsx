@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { getTokenBalance, updateTokenBalance } from '../services/tokenService';
+import { getTokenBalance } from '../services/tokenService';
 import { useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useRouter } from 'next/navigation';
@@ -12,7 +12,7 @@ export default function Navbar({ tokens = 200, }) {
   const { user } = useAuth();
   const [userTokens, setUserTokens] = useState<number | null>(null);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
-  const naviagte = useRouter();
+  const navigate = useRouter();
   
   useEffect(() => {
       async function fetchTokenBalance() {

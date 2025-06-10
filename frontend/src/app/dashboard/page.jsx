@@ -63,21 +63,6 @@ export default function LatestSearch() {
         </p>
       </div>
 
-      <p className="text-lg mb-8">
-        {query.results.length} businesses found, {website_counter} without a website 
-      </p>
-
-      <div className="flex gap-2 mb-8">
-        <button className="px-4 py-2 hover:bg-blue-500 hover:text-white bg-white rounded-full shadow-md font-medium">
-          Without website
-        </button>
-        <button className="px-4 py-2 hover:bg-blue-500 hover:text-white bg-gray-100 rounded-full font-medium">
-          Show all
-        </button>
-        <Link href={`/blog/${query.id}`} className="px-4 py-2 bg-blue-500 text-white rounded-full font-medium">
-          View Full Results
-        </Link>
-      </div>
 
       <div className="bg-white rounded-xl shadow-md p-6 overflow-y-scroll max-h-1/2 pb-4 ">
         <div className="grid grid-cols-16 border-b pb-3 mb-2 font-medium text-gray-500 sticky top-0 p-4 bg-white/80">

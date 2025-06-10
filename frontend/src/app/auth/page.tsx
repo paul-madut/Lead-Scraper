@@ -193,9 +193,7 @@ const AuthPage = () => {
           </div>
           
           <div className="mt-10 pt-6 border-t border-gray-200 text-center">
-            <p className="text-gray-600">
-              Don&apos;t have an account? <Link href="/" className="text-blue-600 font-medium hover:underline">Sign up for free</Link>
-            </p>
+            
           </div>
         </motion.div>
       </div>

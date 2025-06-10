@@ -133,12 +133,13 @@ export default function Navbar({ tokens = 200, }) {
               {/* Mobile Get More Tokens Button */}
               <button
                 onClick={() => {
-                  navigate('/dashboard/tokens');
                   setIsMenuOpen(false)
                 }}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
+                <Link href={'/dashboard/tokens'}> 
                 Get More Tokens
+                </Link>
               </button>
             </div>
           </div>

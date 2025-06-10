@@ -6,10 +6,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
-const page = () => {
+const AuthPage = () => {
   const { user, signInWithGoogle, loading, authError } = useAuth();
   const router = useRouter();
   const [authAttempted, setAuthAttempted] = useState(false);
+  const [isRedirectFlow, setIsRedirectFlow] = useState(false);
 
   const fadeIn = {
     hidden: { opacity: 0, y: 20 },
@@ -32,6 +33,15 @@ const page = () => {
     }
   };
 
+  // Check if we're in a redirect flow on mount
+  useEffect(() => {
+    const redirectFlag = sessionStorage.getItem('authRedirectInProgress');
+    if (redirectFlag === 'true') {
+      setIsRedirectFlow(true);
+      setAuthAttempted(true);
+    }
+  }, []);
+
   // Effect to handle redirection when user state changes
   useEffect(() => {
     console.log("User state in login page:", user?.email || 'No user');
@@ -48,18 +58,36 @@ const page = () => {
     try {
       setAuthAttempted(true);
       console.log("Initiating Google sign-in");
+      
+      // Detect if we're on mobile for user feedback
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        setIsRedirectFlow(true);
+      }
+      
       await signInWithGoogle();
 
-      // We won't reach here until after redirect completes
+      // We won't reach here if redirect is used
     } catch (error) {
       console.error("Sign-in failed:", error);
+      setIsRedirectFlow(false);
     }
+  };
+
+  // Show different loading states based on the flow
+  const getLoadingMessage = () => {
+    if (isRedirectFlow) {
+      return "Redirecting to Google...";
+    }
+    if (loading && authAttempted) {
+      return "Authentication in progress...";
+    }
+    return "Loading...";
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-blue-50 flex flex-col">
-      {/* Next.js App Router handles metadata in layout or a separate metadata file */}
-
       {/* Header */}
       <header className="py-4 bg-white shadow-sm">
         <div className="container mx-auto px-4 md:px-6">
@@ -92,15 +120,29 @@ const page = () => {
             {/* Show error if there is one and we've attempted auth */}
             {authError && authAttempted && (
               <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
-                Authentication failed: {authError.message || 'Please try again.'}
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <span>
+                    Authentication failed: {authError.message || 'Please try again.'}
+                  </span>
+                </div>
               </div>
             )}
             
-            {/* Show loading indicator if we're in the middle of the auth process */}
+            {/* Show loading indicator with appropriate message */}
             {loading && authAttempted && (
-              <div className="p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-md text-sm flex items-center">
-                <div className="w-4 h-4 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin mr-2"></div>
-                Authentication in progress...
+              <div className="p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-md text-sm">
+                <div className="flex items-center">
+                  <div className="w-4 h-4 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin mr-2"></div>
+                  <span>{getLoadingMessage()}</span>
+                </div>
+                {isRedirectFlow && (
+                  <div className="mt-2 text-xs text-blue-600">
+                    You may be redirected to Google. If nothing happens, please enable redirects and try again.
+                  </div>
+                )}
               </div>
             )}
             
@@ -110,7 +152,7 @@ const page = () => {
               whileTap={{ scale: 0.98 }}
               onClick={handleSignIn}
               disabled={loading}
-              className="w-full flex items-center justify-center bg-white border border-gray-300 rounded-md px-4 py-3 space-x-3 shadow-sm hover:shadow-md transition-all duration-200 relative"
+              className="w-full flex items-center justify-center bg-white border border-gray-300 rounded-md px-4 py-3 space-x-3 shadow-sm hover:shadow-md transition-all duration-200 relative disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
@@ -139,8 +181,14 @@ const page = () => {
               )}
             </motion.button>
             
-            <div className="text-center text-sm text-gray-500">
-              <p>By signing in, you agree to our <Link href="#" className="text-blue-600 hover:underline">Terms of Service</Link> and <Link href="#" className="text-blue-600 hover:underline">Privacy Policy</Link>.</p>
+            {/* Mobile-specific help text */}
+            <div className="text-center text-xs text-gray-500">
+              <p>
+                On mobile devices, you'll be redirected to Google for secure sign-in.
+              </p>
+              <p className="mt-2">
+                By signing in, you agree to our <Link href="#" className="text-blue-600 hover:underline">Terms of Service</Link> and <Link href="#" className="text-blue-600 hover:underline">Privacy Policy</Link>.
+              </p>
             </div>
           </div>
           
@@ -171,4 +219,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default AuthPage;

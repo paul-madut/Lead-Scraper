@@ -82,6 +82,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         console.log('Checking redirect result...');
         
+        // Add a small delay to ensure Firebase is ready
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         // Check if we have a pending redirect operation
         const result = await getRedirectResult(auth);
         
@@ -93,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           // Clear any redirect flags
           sessionStorage.removeItem('authRedirectInProgress');
+          sessionStorage.removeItem('authRedirectTimestamp');
           
           // Create token document for new user
           try {
@@ -103,11 +107,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } else {
           console.log('No redirect result found');
-          // If no redirect result but we're expecting one, clear the flag
-          if (sessionStorage.getItem('authRedirectInProgress')) {
-            console.log('Clearing stale redirect flag');
-            sessionStorage.removeItem('authRedirectInProgress');
-            setRedirectInProgress(false);
+          
+          // Check if we're expecting a redirect but didn't get one
+          const redirectFlag = sessionStorage.getItem('authRedirectInProgress');
+          const redirectTimestamp = sessionStorage.getItem('authRedirectTimestamp');
+          
+          if (redirectFlag && redirectTimestamp) {
+            const timeSinceRedirect = Date.now() - parseInt(redirectTimestamp);
+            console.log('Time since redirect started:', timeSinceRedirect + 'ms');
+            
+            // If it's been more than 30 seconds, clear the flags
+            if (timeSinceRedirect > 30000) {
+              console.log('Redirect timeout, clearing flags');
+              sessionStorage.removeItem('authRedirectInProgress');
+              sessionStorage.removeItem('authRedirectTimestamp');
+              setRedirectInProgress(false);
+              setAuthError(new Error('Authentication timeout. Please try again.') as AuthError);
+            }
           }
         }
       } catch (error) {
@@ -116,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAuthError(error as AuthError);
           setRedirectInProgress(false);
           sessionStorage.removeItem('authRedirectInProgress');
+          sessionStorage.removeItem('authRedirectTimestamp');
         }
       } finally {
         if (mounted) {
@@ -124,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    // Set up auth state listener
+    // Set up auth state listener FIRST
     const unsubscribe = onAuthStateChanged(
       auth,
       async (currentUser) => {
@@ -132,24 +149,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         console.log('Auth state changed:', currentUser?.email || 'No user');
         
-        // If we get a user and we were expecting a redirect, clear the redirect state
-        if (currentUser && redirectInProgress) {
-          console.log('User authenticated via redirect');
+        // If we get a user and we were expecting a redirect, this is success
+        const redirectFlag = sessionStorage.getItem('authRedirectInProgress');
+        if (currentUser && redirectFlag) {
+          console.log('User authenticated via redirect (from auth state change)');
           setRedirectInProgress(false);
           sessionStorage.removeItem('authRedirectInProgress');
-        }
-        
-        setUser(currentUser);
-        
-        // Create token document for users if needed
-        if (currentUser) {
+          sessionStorage.removeItem('authRedirectTimestamp');
+          
+          // Create token document
           try {
             await createTokenDocument(currentUser.uid);
+            console.log('Token document created for user:', currentUser.uid);
           } catch (tokenError) {
-            console.error('Error ensuring token document:', tokenError);
+            console.error('Error creating token document:', tokenError);
           }
         }
         
+        setUser(currentUser);
         setLoading(false);
       },
       (error) => {
@@ -161,7 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Check for redirect result immediately
+    // Then check for redirect result
     checkRedirectResult();
 
     // Cleanup function
@@ -169,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       unsubscribe();
     };
-  }, [redirectInProgress]);
+  }, []);
 
   // Sign in with Google - with better mobile detection
   const signInWithGoogle = async () => {
@@ -275,35 +292,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check if we're in the middle of a redirect flow on mount
   useEffect(() => {
     const redirectFlag = sessionStorage.getItem('authRedirectInProgress');
+    const redirectTimestamp = sessionStorage.getItem('authRedirectTimestamp');
+    
     if (redirectFlag === 'true') {
       console.log('Detected redirect in progress from sessionStorage');
       setRedirectInProgress(true);
       setAuthAttempted(true);
+      
+      // Check if redirect is too old (more than 5 minutes)
+      if (redirectTimestamp) {
+        const timeSinceRedirect = Date.now() - parseInt(redirectTimestamp);
+        if (timeSinceRedirect > 300000) { // 5 minutes
+          console.log('Redirect too old, clearing flags');
+          sessionStorage.removeItem('authRedirectInProgress');
+          sessionStorage.removeItem('authRedirectTimestamp');
+          setRedirectInProgress(false);
+        }
+      }
     }
     
     // Also check URL for any redirect indicators
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const hasAuthParams = urlParams.get('state') || urlParams.get('code') || 
-                           window.location.hash.includes('access_token');
+                           window.location.hash.includes('access_token') ||
+                           urlParams.get('authuser') !== null; // Google auth parameter
       
       if (hasAuthParams) {
-        console.log('Detected auth parameters in URL');
+        console.log('Detected auth parameters in URL:', {
+          search: window.location.search,
+          hash: window.location.hash,
+          state: urlParams.get('state'),
+          code: urlParams.get('code'),
+          authuser: urlParams.get('authuser')
+        });
         setRedirectInProgress(true);
         setAuthAttempted(true);
+        
+        // Set a flag to indicate we found auth params
+        sessionStorage.setItem('authParamsDetected', 'true');
       }
     }
   }, []);
 
-  // Separate effect to handle successful authentication
+  // Enhanced effect to handle successful authentication
   useEffect(() => {
     if (user && authAttempted) {
       console.log('User successfully authenticated, clearing redirect state');
       setRedirectInProgress(false);
       sessionStorage.removeItem('authRedirectInProgress');
+      sessionStorage.removeItem('authRedirectTimestamp');
+      sessionStorage.removeItem('authParamsDetected');
       setLoading(false);
     }
   }, [user, authAttempted]);
+
+  // Additional effect to handle cases where auth state change happens without getRedirectResult
+  useEffect(() => {
+    const checkAuthStateWithTimeout = () => {
+      const authParamsDetected = sessionStorage.getItem('authParamsDetected');
+      const redirectFlag = sessionStorage.getItem('authRedirectInProgress');
+      
+      if ((authParamsDetected || redirectFlag) && !user && initialCheckDone) {
+        console.log('Auth params detected but no user after initial check, waiting for auth state...');
+        
+        // Wait a bit more for auth state to update
+        setTimeout(() => {
+          if (!user && (authParamsDetected || redirectFlag)) {
+            console.log('Still no user after waiting, clearing flags and showing error');
+            sessionStorage.removeItem('authRedirectInProgress');
+            sessionStorage.removeItem('authRedirectTimestamp');
+            sessionStorage.removeItem('authParamsDetected');
+            setRedirectInProgress(false);
+            setAuthError(new Error('Authentication failed. Please try again.') as AuthError);
+          }
+        }, 3000); // Wait 3 seconds for auth state to settle
+      }
+    };
+
+    if (initialCheckDone) {
+      checkAuthStateWithTimeout();
+    }
+  }, [user, initialCheckDone]);
 
   // The actual loading state combines several factors
   const isLoading = loading || redirectInProgress || !initialCheckDone;

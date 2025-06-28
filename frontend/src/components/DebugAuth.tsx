@@ -15,8 +15,7 @@ export default function DebugAuth() {
         user: user ? { uid: user.uid, email: user.email } : null,
         loading,
         authError: authError ? authError.message : null,
-        redirectFlag: sessionStorage.getItem('authRedirectInProgress'),
-        redirectTimestamp: sessionStorage.getItem('authRedirectTimestamp'),
+        // Removed unused sessionStorage references
         url: window.location.href,
         userAgent: navigator.userAgent,
         isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),

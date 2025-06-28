@@ -10,7 +10,6 @@ const AuthPage = () => {
   const { user, signInWithGoogle, loading, authError } = useAuth();
   const router = useRouter();
   const [authAttempted, setAuthAttempted] = useState(false);
-  const [isRedirectFlow, setIsRedirectFlow] = useState(false);
 
   const fadeIn = {
     hidden: { opacity: 0, y: 20 },
@@ -33,14 +32,6 @@ const AuthPage = () => {
     }
   };
 
-  // Check if we're in a redirect flow on mount
-  useEffect(() => {
-    const redirectFlag = sessionStorage.getItem('authRedirectInProgress');
-    if (redirectFlag === 'true') {
-      setIsRedirectFlow(true);
-      setAuthAttempted(true);
-    }
-  }, []);
 
   // Effect to handle redirection when user state changes
   useEffect(() => {
@@ -57,31 +48,17 @@ const AuthPage = () => {
   const handleSignIn = async () => {
     try {
       setAuthAttempted(true);
-      console.log("Initiating Google sign-in");
-      
-      // Detect if we're on mobile for user feedback
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
-      if (isMobile) {
-        setIsRedirectFlow(true);
-      }
-      
       await signInWithGoogle();
-
-      // We won't reach here if redirect is used
+      // Page will redirect, so we won't reach here
     } catch (error) {
       console.error("Sign-in failed:", error);
-      setIsRedirectFlow(false);
     }
   };
 
-  // Show different loading states based on the flow
+  // Show loading message
   const getLoadingMessage = () => {
-    if (isRedirectFlow) {
-      return "Redirecting to Google...";
-    }
     if (loading && authAttempted) {
-      return "Authentication in progress...";
+      return "Redirecting to Google...";
     }
     return "Loading...";
   };
@@ -131,18 +108,16 @@ const AuthPage = () => {
               </div>
             )}
             
-            {/* Show loading indicator with appropriate message */}
+            {/* Show loading indicator */}
             {loading && authAttempted && (
               <div className="p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-md text-sm">
                 <div className="flex items-center">
                   <div className="w-4 h-4 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin mr-2"></div>
                   <span>{getLoadingMessage()}</span>
                 </div>
-                {isRedirectFlow && (
-                  <div className="mt-2 text-xs text-blue-600">
-                    You may be redirected to Google. If nothing happens, please enable redirects and try again.
-                  </div>
-                )}
+                <div className="mt-2 text-xs text-blue-600">
+                  You will be redirected to Google for secure sign-in.
+                </div>
               </div>
             )}
             
@@ -181,10 +156,10 @@ const AuthPage = () => {
               )}
             </motion.button>
             
-            {/* Mobile-specific help text */}
+            {/* Help text */}
             <div className="text-center text-xs text-gray-500">
               <p>
-                On mobile devices, you'll be redirected to Google for secure sign-in.
+                You'll be redirected to Google for secure sign-in.
               </p>
               <p className="mt-2">
                 By signing in, you agree to our <Link href="#" className="text-blue-600 hover:underline">Terms of Service</Link> and <Link href="#" className="text-blue-600 hover:underline">Privacy Policy</Link>.

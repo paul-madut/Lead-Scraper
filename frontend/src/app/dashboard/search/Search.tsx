@@ -53,7 +53,7 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
       
       setIsLoadingTokens(true);
       try {
-        const currentBalance = await getTokenBalance(user.uid);
+        const currentBalance = await getTokenBalance();
         setUserTokens(currentBalance);
       } catch (error) {
         console.error('Error fetching token balance:', error);
@@ -87,11 +87,7 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
     
     const requestedResults = parseInt(maxResults);
     
-    // Pre-flight token check (client-side validation)
-    if (userTokens !== null && userTokens < estimatedCost) {
-      onSearchError(`Insufficient tokens. You have ${userTokens} tokens but need at least ${estimatedCost} tokens for this search (up to ${requestedResults} results).`);
-      return;
-    }
+    // Note: Token validation is now handled server-side in the API
     
     setIsSearching(true);
     onSearchStart();
@@ -281,7 +277,7 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
         <button
           className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
           type="submit"
-          disabled={!user || !hasEnoughTokens || isSearching}
+          disabled={!user || isSearching}
         >
           {isSearching ? (
             <div className="flex items-center">

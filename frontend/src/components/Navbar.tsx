@@ -23,7 +23,7 @@ export default function Navbar({ tokens = 200, }) {
         
         setIsLoadingTokens(true);
         try {
-          const currentBalance  = await getTokenBalance(user.uid);
+          const currentBalance  = await getTokenBalance();
           setUserTokens(currentBalance);
         } catch (error) {
           console.error('Error fetching token balance:', error);
@@ -126,7 +126,7 @@ export default function Navbar({ tokens = 200, }) {
                   </span>
                 </div>
                 <span className="text-sm font-bold text-blue-600">
-                  {tokens.toLocaleString()}
+                  {userTokens?.toLocaleString() || '0'}
                 </span>
               </div>
 

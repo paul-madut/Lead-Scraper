@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           // Create token document for new user
           try {
-            await createTokenDocument(result.user.uid);
+            await createTokenDocument();
           } catch (tokenError) {
             console.error('Error creating token document:', tokenError);
           }
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (currentUser) {
           // Ensure token document exists for authenticated users
           try {
-            await createTokenDocument(currentUser.uid);
+            await createTokenDocument();
           } catch (tokenError) {
             console.error('Error creating token document:', tokenError);
           }

@@ -91,7 +91,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<SearchRes
       Math.max(parseInt(String(data.max_results)) || 20, 1), 
       PRICING_CONFIG.MAX_RESULTS_LIMIT
     );
-    const radius: number = Math.min(Math.max(parseInt(String(data.radius)) || 5000, 100), 50000);
+    const radius: number = Math.min(Math.max(parseInt(String(data.radius)) || 5000, 1000), 50000);
 
     // Check token balance using Admin SDK
     let currentTokens: number;

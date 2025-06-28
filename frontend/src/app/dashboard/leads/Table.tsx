@@ -13,7 +13,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown, MoreHorizontal, ExternalLink, Phone, MapPin } from "lucide-react"
+import { ArrowUpDown, ChevronDown, MoreHorizontal, ExternalLink, Phone, MapPin, Download, FileSpreadsheet } from "lucide-react"
  
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -246,6 +246,63 @@ export const columns: ColumnDef<Business>[] = [
   },
 ]
    
+// Export utility functions
+const exportToCSV = (data: Business[], filename: string = 'leads-export.csv') => {
+  const headers = ['Business Name', 'Address', 'Phone', 'Website', 'Rating', 'Total Reviews', 'Status'];
+  const csvContent = [
+    headers.join(','),
+    ...data.map(business => [
+      `"${business.name.replace(/"/g, '""')}"`,
+      `"${business.address.replace(/"/g, '""')}"`,
+      `"${business.phone || 'N/A'}"`,
+      `"${business.website || 'No Website'}"`,
+      business.rating || 'N/A',
+      business.total_reviews || 0,
+      business.business_status || 'Unknown'
+    ].join(','))
+  ].join('\n');
+  
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
+const exportToExcel = (data: Business[], filename: string = 'leads-export.xlsx') => {
+  // Create a simplified Excel-compatible CSV format
+  const headers = ['Business Name', 'Address', 'Phone', 'Website', 'Rating', 'Total Reviews', 'Status', 'Lead Potential'];
+  const csvContent = [
+    headers.join('\t'), // Use tab separation for Excel
+    ...data.map(business => [
+      business.name,
+      business.address,
+      business.phone || 'N/A',
+      business.website || 'No Website',
+      business.rating || 'N/A',
+      business.total_reviews || 0,
+      business.business_status || 'Unknown',
+      business.website ? 'Low' : 'High'
+    ].join('\t'))
+  ].join('\n');
+  
+  const blob = new Blob([csvContent], { type: 'application/vnd.ms-excel' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
 export function DataTable({ data }: DataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -337,33 +394,82 @@ export function DataTable({ data }: DataTableProps) {
           </DropdownMenu>
         </div>
 
-        {/* Column Visibility */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline">
-              Columns <ChevronDown className="ml-2 h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {table
-              .getAllColumns()
-              .filter((column) => column.getCanHide())
-              .map((column) => {
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="capitalize"
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) =>
-                      column.toggleVisibility(!!value)
-                    }
-                  >
-                    {column.id}
-                  </DropdownMenuCheckboxItem>
-                )
-              })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center space-x-2">
+          {/* Export Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Export <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Export All Data</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() => exportToCSV(table.getFilteredRowModel().rows.map(row => row.original), 'all-leads.csv')}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => exportToExcel(table.getFilteredRowModel().rows.map(row => row.original), 'all-leads.xlsx')}
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Export as Excel
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Export Filtered Data</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() => {
+                  const filteredData = table.getFilteredRowModel().rows.map(row => row.original);
+                  const leadsOnly = filteredData.filter(business => !business.website);
+                  exportToCSV(leadsOnly, 'potential-leads-only.csv');
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export Potential Leads Only
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  const filteredData = table.getFilteredRowModel().rows.map(row => row.original);
+                  const withPhone = filteredData.filter(business => business.phone);
+                  exportToCSV(withPhone, 'businesses-with-phone.csv');
+                }}
+              >
+                <Phone className="mr-2 h-4 w-4" />
+                Export With Phone Numbers
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Column Visibility */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                Columns <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {table
+                .getAllColumns()
+                .filter((column) => column.getCanHide())
+                .map((column) => {
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      className="capitalize"
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(value) =>
+                        column.toggleVisibility(!!value)
+                      }
+                    >
+                      {column.id}
+                    </DropdownMenuCheckboxItem>
+                  )
+                })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Table */}

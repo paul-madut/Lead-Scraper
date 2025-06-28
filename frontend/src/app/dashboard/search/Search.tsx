@@ -24,7 +24,7 @@ const PRICING_CONFIG = {
 export default function Search({ onSearchStart, onSearchComplete, onSearchError }: SearchFormProps) {
   const [keyword, setKeyword] = useState('');
   const [location, setLocation] = useState('');
-  const [radius, setRadius] = useState('5000');
+  const [radius, setRadius] = useState('5');
   const [maxResults, setMaxResults] = useState('20');
   const [userTokens, setUserTokens] = useState<number | null>(null);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
@@ -110,7 +110,7 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
         body: JSON.stringify({
           keyword: keyword.trim(),
           location: location.trim(),
-          radius: parseInt(radius),
+          radius: parseInt(radius) * 1000, // Convert km to meters for API
           max_results: requestedResults,
         }),
       });
@@ -221,7 +221,7 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             id="location"
             type="text"
-            placeholder="e.g., Miami, FL"
+            placeholder="e.g., Toronto, ON or Ontario or Canada"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             disabled={isSearching}
@@ -230,18 +230,21 @@ export default function Search({ onSearchStart, onSearchComplete, onSearchError 
         
         <div className="mb-4">
           <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="radius">
-            Search Radius (meters)
+            Search Radius (kilometers)
           </label>
           <input
             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             id="radius"
             type="number"
-            min="1000"
-            max="50000"
+            min="1"
+            max="50"
             value={radius}
             onChange={(e) => setRadius(e.target.value)}
             disabled={isSearching}
           />
+          <p className="text-xs text-gray-500 mt-1">
+            For large areas like provinces/countries, use text search (larger radius or leave as default)
+          </p>
         </div>
         
         <div className="mb-4">

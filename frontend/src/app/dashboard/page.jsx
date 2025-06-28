@@ -64,8 +64,7 @@ export default function LatestSearch() {
       </div>
 
 
-      <div className="bg-white rounded-xl shadow-md p-6 overflow-y-scroll max-h-1/2 pb-4 ">
-        <div className="grid grid-cols-16 border-b pb-3 mb-2 font-medium text-gray-500 sticky top-0 p-4 bg-white/80">
+        <div className="grid grid-cols-16 border-b pb-3 mb-2 font-medium text-gray-500 static p-4 bg-white/80 rounded-xl">
           <div className="col-span-4">NAME</div>
           <div className="col-span-2"></div>
           <div className="col-span-3 text-center">TOTAL REVIEWS</div>
@@ -73,6 +72,7 @@ export default function LatestSearch() {
           <div className="col-span-2 text-center">Website?</div>
           <div className="col-span-2">Phone</div>
         </div>
+      <div className="bg-white rounded-xl shadow-md p-6 overflow-y-scroll max-h-1/2 pb-4 ">
 
         {query.results.map((business) => (
           <div key={business.place_id} className="grid grid-cols-16 border-b py-3">

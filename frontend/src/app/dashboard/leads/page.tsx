@@ -96,7 +96,7 @@ function LeadsPage() {
   // If showing table view
   if (showTable && selectedQuery) {
     return (
-      <div className="max-w-7xl mx-auto p-8">
+      <div className="max-w-7xl mx-auto p-8 overflow-y-scroll h-2/3">
         {/* Header with back button */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -117,12 +117,45 @@ function LeadsPage() {
                 {format(new Date(selectedQuery.timestamp), "MMMM dd, yyyy 'at' h:mm a")} • {selectedQuery.resultCount} results
               </p>
             </div>
-            <Link 
-              href={`/dashboard/leads/${selectedQuery.id}`}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-            >
-              Detailed View
-            </Link>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => {
+                  // Quick CSV export
+                  const csvContent = [
+                    ['Business Name', 'Address', 'Phone', 'Website', 'Lead Potential'].join(','),
+                    ...selectedQuery.results.map((business: any) => [
+                      `"${business.name.replace(/"/g, '""')}"`,
+                      `"${business.address.replace(/"/g, '""')}"`,
+                      `"${business.phone || 'N/A'}"`,
+                      `"${business.website || 'No Website'}"`,
+                      business.website ? 'Low' : 'High'
+                    ].join(','))
+                  ].join('\n');
+                  
+                  const blob = new Blob([csvContent], { type: 'text/csv' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${selectedQuery.searchTerm}-leads.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export CSV
+              </button>
+              <Link 
+                href={`/dashboard/leads/${selectedQuery.id}`}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+              >
+                Detailed View
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -169,7 +202,7 @@ function LeadsPage() {
           </Link>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-scroll min-h-1/2 max-h-2/3">
           {history.map((query) => {
             const businessesWithoutWebsite = query.results?.filter((business: any) => !business.website).length || 0;
             const conversionRate = query.resultCount > 0 ? Math.round((businessesWithoutWebsite / query.resultCount) * 100) : 0;

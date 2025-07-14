@@ -16,6 +16,7 @@ import {
   IconList,
   IconSearch,
 } from "@tabler/icons-react";
+import { TokenDisplay } from "@/components/TokenDisplay";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -76,6 +77,7 @@ export default function layout({
                 {links.map((link, idx) => (
                   <SidebarLink key={idx} link={link} />
                 ))}
+                
                 <SidebarButton
                   link={{
                     label: "Logout",
@@ -85,6 +87,11 @@ export default function layout({
                     ),
                   }}
                 ></SidebarButton>
+                {/* Token Display Section */}
+                <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+                  <TokenDisplay />
+                </div>
+                
               </div>
             </div>
             <div>

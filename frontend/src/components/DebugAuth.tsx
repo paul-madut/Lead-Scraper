@@ -9,6 +9,8 @@ export default function DebugAuth() {
   const [debugInfo, setDebugInfo] = useState<any>({});
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     const updateDebugInfo = () => {
       const info = {
         timestamp: new Date().toISOString(),
@@ -16,10 +18,10 @@ export default function DebugAuth() {
         loading,
         authError: authError ? authError.message : null,
         // Removed unused sessionStorage references
-        url: window.location.href,
-        userAgent: navigator.userAgent,
-        isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
-        hasAuthParams: window.location.search.includes('state') || window.location.search.includes('code') || window.location.hash.includes('access_token')
+        url: typeof window !== 'undefined' ? window.location.href : 'SSR',
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'SSR',
+        isMobile: typeof navigator !== 'undefined' ? /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) : false,
+        hasAuthParams: typeof window !== 'undefined' ? (window.location.search.includes('state') || window.location.search.includes('code') || window.location.hash.includes('access_token')) : false
       };
       setDebugInfo(info);
     };
@@ -33,6 +35,7 @@ export default function DebugAuth() {
   }, [user, loading, authError]);
 
   // Only show in development or with debug flag
+  if (typeof window === 'undefined') return null;
   if (process.env.NODE_ENV === 'production' && !window.location.search.includes('debug=true')) {
     return null;
   }

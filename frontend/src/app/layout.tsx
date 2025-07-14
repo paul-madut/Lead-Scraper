@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/components/AuthProvider";
+import dynamic from "next/dynamic";
+
+const AuthProvider = dynamic(() => import("@/components/AuthProvider").then(mod => ({ default: mod.AuthProvider })), {
+  ssr: false,
+  loading: () => <div>Loading...</div>
+});
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

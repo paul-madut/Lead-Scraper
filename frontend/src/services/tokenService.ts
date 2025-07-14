@@ -39,10 +39,21 @@ export const getTokenBalance = async (): Promise<number> => {
 // Create token document for new users (handled automatically by getTokenBalance)
 export const createTokenDocument = async (): Promise<void> => {
   try {
+    // Wait a moment for auth.currentUser to be available
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Check if user is authenticated before calling API
+    const user = auth.currentUser;
+    if (!user) {
+      console.log('User not authenticated yet, skipping token document creation');
+      return;
+    }
+    
     // Simply call getTokenBalance - it will create the document if it doesn't exist
     await getTokenBalance();
   } catch (error) {
     console.error('Error creating token document:', error);
-    throw error;
+    // Don't throw error to avoid breaking auth flow
+    // throw error;
   }
 };

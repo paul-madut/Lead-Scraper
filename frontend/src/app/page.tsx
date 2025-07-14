@@ -43,6 +43,8 @@ export default function Home() {
 
   // Handle scroll effect for navbar
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };

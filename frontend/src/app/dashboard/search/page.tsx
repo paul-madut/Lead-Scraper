@@ -3,7 +3,6 @@
 
 import { useState } from 'react';
 import Search from './Search';
-import ResultsTable from '@/components/ResultsTable';
 import ExportButton from '@/components/ExportButton';
 import { Business } from '@/lib/types';
 

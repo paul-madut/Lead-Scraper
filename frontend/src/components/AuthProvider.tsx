@@ -42,12 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(result.user);
           setIsRedirecting(false);
           
-          // Create token document for new user
-          try {
-            await createTokenDocument();
-          } catch (tokenError) {
-            console.error('Error creating token document:', tokenError);
-          }
+          // Note: Token document creation will be handled in onAuthStateChanged
+          // after the user state is properly set
         }
       } catch (error) {
         console.error('Error getting redirect result:', error);
@@ -66,11 +62,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (currentUser) {
           // Ensure token document exists for authenticated users
-          try {
-            await createTokenDocument();
-          } catch (tokenError) {
-            console.error('Error creating token document:', tokenError);
-          }
+          // Use setTimeout to ensure this doesn't block the auth state change
+          setTimeout(async () => {
+            try {
+              await createTokenDocument();
+            } catch (tokenError) {
+              console.error('Error creating token document:', tokenError);
+            }
+          }, 500); // Give more time for auth to settle
         }
         
         setUser(currentUser);

@@ -1,29 +1,62 @@
 rules_version = '2';
 
-// Lead-Scraper Firestore security rules.
-// Principle: money-bearing collections are server-only. The Admin SDK bypasses
-// these rules, so all writes to tokens / sessions / results go through API
-// routes. Clients may only READ their own search history.
+// Lead-Scraper / B2Lead Firestore security rules.
+// Money-bearing collections are server-only (the Admin SDK bypasses rules).
+// CRM collections are workspace-scoped: a user may only touch data in a
+// workspace they are a member of. Membership itself is server-granted.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Token balances: never touchable from the client. Balance is read via
-    // GET /api/tokens/balance and mutated only by server-side AdminTokenService.
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Membership doc id is "<workspaceId>__<userId>".
+    function isMember(workspaceId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/memberships/$(workspaceId + '__' + request.auth.uid));
+    }
+
+    // --- Money / server-only ---
     match /tokens/{userId} {
       allow read, write: if false;
     }
-
-    // Search pagination cursors: server-only.
     match /searchSessions/{sessionId} {
       allow read, write: if false;
     }
-
-    // Saved search results: the owner may read their own; all writes are
-    // server-side (the search API persists results with the Admin SDK).
     match /searchQueries/{queryId} {
-      allow read: if request.auth != null
-                  && resource.data.userId == request.auth.uid;
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
       allow write: if false;
+    }
+
+    // --- Tenancy (server-managed) ---
+    match /users/{userId} {
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow write: if false;
+    }
+    match /workspaces/{workspaceId} {
+      allow read: if isMember(workspaceId);
+      allow write: if false;
+    }
+    match /memberships/{membershipId} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // --- CRM (workspace members) ---
+    match /contacts/{contactId} {
+      allow read: if isMember(resource.data.workspaceId);
+      allow create: if isMember(request.resource.data.workspaceId)
+                    && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isMember(resource.data.workspaceId)
+                    && request.resource.data.workspaceId == resource.data.workspaceId;
+      allow delete: if isMember(resource.data.workspaceId);
+    }
+    match /activities/{activityId} {
+      // Append-only: create + read only, no edits or deletes.
+      allow read: if isMember(resource.data.workspaceId);
+      allow create: if isMember(request.resource.data.workspaceId);
+      allow update, delete: if false;
     }
 
     // Deny everything else by default.

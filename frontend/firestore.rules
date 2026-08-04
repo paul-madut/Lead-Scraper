@@ -59,6 +59,20 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // --- Messaging (server-written; members read) ---
+    match /numbers/{numberId} {
+      allow read: if isMember(resource.data.workspaceId);
+      allow write: if false;
+    }
+    match /conversations/{conversationId} {
+      allow read: if isMember(resource.data.workspaceId);
+      allow write: if false;
+    }
+    match /messages/{messageId} {
+      allow read: if isMember(resource.data.workspaceId);
+      allow write: if false;
+    }
+
     // Deny everything else by default.
     match /{document=**} {
       allow read, write: if false;

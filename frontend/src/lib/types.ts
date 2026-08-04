@@ -169,3 +169,53 @@ export interface Activity {
   createdBy: string;
   createdAt: Date;
 }
+
+// --- Messaging (Phase 1: SMS) ---
+
+export type MessageDirection = "inbound" | "outbound";
+export type MessageStatus =
+  | "queued"
+  | "sending"
+  | "sent"
+  | "delivered"
+  | "undelivered"
+  | "failed"
+  | "received";
+
+/** A phone number owned by a workspace, used to route inbound messages. */
+export interface WorkspaceNumber {
+  id: string; // E.164, doubles as the doc id
+  workspaceId: string;
+  phoneNumber: string;
+  label: string | null;
+  createdAt: Date;
+}
+
+/** One SMS thread between a workspace number and a contact/phone. */
+export interface Conversation {
+  id: string;
+  workspaceId: string;
+  contactId: string | null;
+  channel: "sms";
+  contactPhone: string;
+  workspacePhone: string;
+  lastMessageAt: Date | null;
+  lastMessagePreview: string;
+  lastDirection: MessageDirection | null;
+  unread: boolean;
+}
+
+export interface Message {
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  contactId: string | null;
+  direction: MessageDirection;
+  body: string;
+  status: MessageStatus;
+  from: string;
+  to: string;
+  twilioSid: string | null;
+  errorMessage: string | null;
+  createdAt: Date;
+}

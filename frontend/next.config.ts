@@ -1,16 +1,16 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  output: 'export',
-  trailingSlash: true,
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
   reactStrictMode: true,
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   images: {
-    domains: ['firebasestorage.googleapis.com','maps.googleapis.com'],
-    unoptimized: true,
+    // Business photos are proxied through /api/photo (server-side key), so the
+    // only remote hosts we render directly are Firebase Storage and Google
+    // account avatars.
+    remotePatterns: [
+      { protocol: "https", hostname: "firebasestorage.googleapis.com" },
+      { protocol: "https", hostname: "lh3.googleusercontent.com" },
+    ],
   },
-  // Remove headers and rewrites - handle these in firebase.json and your code
 };
 
-module.exports = nextConfig;
+export default nextConfig;

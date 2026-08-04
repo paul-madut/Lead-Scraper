@@ -1,0 +1,34 @@
+rules_version = '2';
+
+// Lead-Scraper Firestore security rules.
+// Principle: money-bearing collections are server-only. The Admin SDK bypasses
+// these rules, so all writes to tokens / sessions / results go through API
+// routes. Clients may only READ their own search history.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Token balances: never touchable from the client. Balance is read via
+    // GET /api/tokens/balance and mutated only by server-side AdminTokenService.
+    match /tokens/{userId} {
+      allow read, write: if false;
+    }
+
+    // Search pagination cursors: server-only.
+    match /searchSessions/{sessionId} {
+      allow read, write: if false;
+    }
+
+    // Saved search results: the owner may read their own; all writes are
+    // server-side (the search API persists results with the Admin SDK).
+    match /searchQueries/{queryId} {
+      allow read: if request.auth != null
+                  && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

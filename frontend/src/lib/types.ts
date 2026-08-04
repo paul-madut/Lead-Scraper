@@ -103,3 +103,69 @@ export interface TokenBalanceResponse {
   balance: number;
   error?: string;
 }
+
+// --- CRM (Phase 0) ---
+
+export type ConsentState = "unknown" | "granted" | "denied";
+
+export interface Workspace {
+  id: string;
+  name: string;
+  ownerUserId: string;
+}
+
+export interface Membership {
+  workspaceId: string;
+  userId: string;
+  role: "owner" | "admin" | "member";
+}
+
+/** A CRM contact. Promoted from a scraped Business or created manually. */
+export interface Contact {
+  id: string;
+  workspaceId: string;
+  name: string;
+  companyName: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  address: string | null;
+  source: "scrape" | "manual" | "import";
+  placeId: string | null;
+  rating: number | null;
+  totalReviews: number | null;
+  tags: string[];
+  stage: string;
+  ownerId: string;
+  // Compliance - carried from day one, not bolted on later.
+  smsConsent: ConsentState;
+  callConsent: ConsentState;
+  dncCall: boolean;
+  optOutSms: boolean;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+  lastActivityAt: Date | null;
+}
+
+export type ActivityType =
+  | "created"
+  | "note"
+  | "call"
+  | "sms"
+  | "email"
+  | "stage_change"
+  | "tag"
+  | "consent";
+
+/** Append-only timeline entry on a contact. */
+export interface Activity {
+  id: string;
+  workspaceId: string;
+  contactId: string;
+  type: ActivityType;
+  body: string;
+  direction: "inbound" | "outbound" | null;
+  createdBy: string;
+  createdAt: Date;
+}

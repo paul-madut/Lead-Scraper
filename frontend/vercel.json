@@ -1,8 +1,14 @@
 {
-    "rewrites": [
-      {
-        "source": "/__/auth/:path*",
-        "destination": "https://lead-generator-f3197.firebaseapp.com/__/auth/:path*"
-      }
-    ]
-  }
+  "rewrites": [
+    {
+      "source": "/__/auth/:path*",
+      "destination": "https://lead-generator-f3197.firebaseapp.com/__/auth/:path*"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/flows/tick",
+      "schedule": "*/2 * * * *"
+    }
+  ]
+}

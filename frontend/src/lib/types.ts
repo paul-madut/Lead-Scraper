@@ -242,3 +242,39 @@ export interface Call {
   createdBy: string;
   createdAt: Date;
 }
+
+// --- Sequences / flows (Phase 3) ---
+
+export type SequenceStep =
+  | { id: string; type: "sms"; body: string }
+  | { id: string; type: "wait"; days: number }
+  // Simple branch: if the contact has replied, jump to step `jumpTo`
+  // (an index into steps, or -1 to exit); otherwise continue.
+  | { id: string; type: "branch"; condition: "replied"; jumpTo: number };
+
+export interface Sequence {
+  id: string;
+  workspaceId: string;
+  name: string;
+  status: "draft" | "active";
+  stopOnReply: boolean;
+  steps: SequenceStep[];
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type EnrollmentStatus = "active" | "completed" | "stopped" | "failed";
+
+export interface Enrollment {
+  id: string;
+  workspaceId: string;
+  sequenceId: string;
+  contactId: string;
+  contactPhone: string;
+  currentStep: number;
+  status: EnrollmentStatus;
+  startedAt: Date;
+  nextRunAt: Date;
+  lastError: string | null;
+}

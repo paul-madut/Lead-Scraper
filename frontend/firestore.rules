@@ -77,6 +77,20 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // --- Sequences (members author; enrollments are engine-driven) ---
+    match /sequences/{sequenceId} {
+      allow read: if isMember(resource.data.workspaceId);
+      allow create: if isMember(request.resource.data.workspaceId)
+                    && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isMember(resource.data.workspaceId)
+                    && request.resource.data.workspaceId == resource.data.workspaceId;
+      allow delete: if isMember(resource.data.workspaceId);
+    }
+    match /enrollments/{enrollmentId} {
+      allow read: if isMember(resource.data.workspaceId);
+      allow write: if false;
+    }
+
     // Deny everything else by default.
     match /{document=**} {
       allow read, write: if false;

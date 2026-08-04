@@ -1,21 +1,20 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Lead Generator",
-  description: "Find Leads for your Business",
+  title: {
+    default: "B2Lead - Local business leads for agencies",
+    template: "%s | B2Lead",
+  },
+  description:
+    "Find and export local business leads by type and location. Only pay for new leads, never duplicates.",
 };
 
 export default function RootLayout({
@@ -25,11 +24,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${inter.variable} antialiased`}>
         <AuthProvider>{children}</AuthProvider>
-      
       </body>
     </html>
   );

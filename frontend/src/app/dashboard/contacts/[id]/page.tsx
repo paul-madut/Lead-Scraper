@@ -25,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import ContactCallButton from "@/components/ContactCallButton";
 import { sendSmsMessage } from "@/services/messaging";
 import { PIPELINE_STAGES, stageLabel, stageTone } from "@/lib/crm";
 import type { Activity, Contact, ConsentState } from "@/lib/types";
@@ -188,21 +189,30 @@ export default function ContactDetailPage() {
               )}
             </div>
           </div>
-          <div className="shrink-0">
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Stage
-            </label>
-            <select
-              value={contact.stage}
-              onChange={(e) => onStageChange(e.target.value)}
-              className="rounded-lg border bg-card px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            >
-              {PIPELINE_STAGES.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
+          <div className="flex shrink-0 flex-col items-end gap-3">
+            {contact.phone && !contact.dncCall && (
+              <ContactCallButton
+                phone={contact.phone}
+                contactId={contact.id}
+                onCallEnded={refresh}
+              />
+            )}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Stage
+              </label>
+              <select
+                value={contact.stage}
+                onChange={(e) => onStageChange(e.target.value)}
+                className="rounded-lg border bg-card px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              >
+                {PIPELINE_STAGES.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </CardContent>
       </Card>

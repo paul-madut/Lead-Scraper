@@ -1,112 +1,76 @@
-// services/queryService.ts
-import { 
-    collection, 
-    addDoc, 
-    getDocs, 
-    query as firestoreQuery, 
-    where, 
-    orderBy, 
-    Timestamp,
-    doc,
-    limit,
-    getDoc, 
-    DocumentData,
-    QueryDocumentSnapshot
-  } from 'firebase/firestore';
-  import { db } from '@/firebase/config';
-  import { Business, SearchQuery, SearchQueryDocument } from '@/lib/types';
-  
-  // Helper to convert Firestore document to SearchQuery
-  const convertDoc = (doc: QueryDocumentSnapshot<DocumentData>): SearchQuery => {
-    const data = doc.data() as SearchQueryDocument;
-    return {
-      id: doc.id,
-      userId: data.userId,
-      searchTerm: data.searchTerm,
-      timestamp: data.timestamp.toDate(),
-      resultCount: data.resultCount,
-      results: data.results
-    };
+// services/query.ts - CLIENT-side read helpers for a user's own search history.
+// Writes happen server-side (see adminSearchStore). Firestore rules restrict
+// reads to documents the caller owns.
+import {
+  collection,
+  getDocs,
+  query as firestoreQuery,
+  where,
+  orderBy,
+  doc,
+  limit,
+  getDoc,
+  DocumentData,
+  QueryDocumentSnapshot,
+} from "firebase/firestore";
+import { db, auth } from "@/firebase/config";
+import { SearchQuery, SearchQueryDocument } from "@/lib/types";
+
+const convertDoc = (
+  snapshot: QueryDocumentSnapshot<DocumentData>
+): SearchQuery => {
+  const data = snapshot.data() as Partial<SearchQueryDocument>;
+  const results = Array.isArray(data.results) ? data.results : [];
+  return {
+    id: snapshot.id,
+    userId: data.userId ?? "",
+    searchTerm: data.searchTerm ?? "",
+    timestamp: data.timestamp?.toDate?.() ?? new Date(0),
+    resultCount: data.resultCount ?? results.length,
+    results,
   };
-  
-  export async function saveSearchQuery(
-    userId: string, 
-    searchTerm: string, 
-    results: Business[]
-  ): Promise<string> {
-    console.log(userId, searchTerm,results)
-    try {
-      const queryData: SearchQueryDocument = {
-        userId,
-        searchTerm,
-        timestamp: Timestamp.now(),
-        resultCount: results.length,
-        results: results
-      };
-      
-      const docRef = await addDoc(collection(db, "searchQueries"), queryData);
-      return docRef.id;
-    } catch (error) {
-      console.error("Error saving search query:", error);
-      throw error;
-    }
+};
+
+export async function getUserSearchHistory(userId: string): Promise<SearchQuery[]> {
+  const q = firestoreQuery(
+    collection(db, "searchQueries"),
+    where("userId", "==", userId),
+    orderBy("timestamp", "desc")
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(convertDoc);
+}
+
+export async function getMostRecentUserSearch(userId: string): Promise<SearchQuery[]> {
+  const q = firestoreQuery(
+    collection(db, "searchQueries"),
+    where("userId", "==", userId),
+    orderBy("timestamp", "desc"),
+    limit(1)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(convertDoc);
+}
+
+export async function getSearchResultsById(queryId: string): Promise<SearchQuery> {
+  const snapshot = await getDoc(doc(db, "searchQueries", queryId));
+  if (!snapshot.exists()) {
+    throw new Error("Search query not found");
   }
-  
-  export async function getUserSearchHistory(userId: string): Promise<SearchQuery[]> {
-    console.log(userId + " history")
-    try {
-      const q = firestoreQuery(
-        collection(db, "searchQueries"), 
-        where("userId", "==", userId),
-        orderBy("timestamp", "desc")
-      );
-      
-      const querySnapshot = await getDocs(q);
-      console.log(querySnapshot.docs.map(convertDoc))
-      return querySnapshot.docs.map(convertDoc);
-    } catch (error) {
-      console.error("Error fetching search history:", error);
-      throw error;
-    }
+  const data = snapshot.data() as SearchQueryDocument;
+
+  // Defence in depth on top of Firestore rules.
+  if (data.userId !== auth.currentUser?.uid) {
+    throw new Error("You do not have access to this search");
   }
 
-  export async function getMostRecentUserSearch(userId: string): Promise<SearchQuery[]> {
-    console.log(userId + " history");
-    try {
-      const q = firestoreQuery(
-        collection(db, "searchQueries"),
-        where("userId", "==", userId),
-        orderBy("timestamp", "desc"),
-        limit(1) // Add this to get only the most recent entry
-      );
-      const querySnapshot = await getDocs(q);
-      console.log(querySnapshot.docs.map(convertDoc));
-      return querySnapshot.docs.map(convertDoc);
-    } catch (error) {
-      console.error("Error fetching search history:", error);
-      throw error;
-    }
-  }
-  export async function getSearchResultsById(queryId: string): Promise<SearchQuery> {
-    try {
-      const docRef = doc(db, "searchQueries", queryId);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        const data = docSnap.data() as SearchQueryDocument;
-        return {
-          id: docSnap.id,
-          userId: data.userId,
-          searchTerm: data.searchTerm,
-          timestamp: data.timestamp.toDate(),
-          resultCount: data.resultCount,
-          results: data.results
-        };
-      } else {
-        throw new Error("Search query not found");
-      }
-    } catch (error) {
-      console.error("Error fetching search results:", error);
-      throw error;
-    }
-  }
+  const results = Array.isArray(data.results) ? data.results : [];
+  return {
+    id: snapshot.id,
+    userId: data.userId,
+    searchTerm: data.searchTerm,
+    timestamp: data.timestamp?.toDate?.() ?? new Date(0),
+    resultCount: data.resultCount ?? results.length,
+    results,
+  };
+}

@@ -1,314 +1,350 @@
 "use client";
-import React from "react";
+
 import { useState, useEffect } from "react";
+import Link from "next/link";
+import { format } from "date-fns";
+import {
+  ArrowLeft,
+  Download,
+  Plus,
+  Search as SearchIcon,
+  FolderSearch,
+} from "lucide-react";
+
 import { useAuth } from "@/components/AuthProvider";
 import { getUserSearchHistory } from "@/services/query";
-import { format } from "date-fns";
-import Link from "next/link";
+import { downloadLeadsCsv } from "@/lib/export";
+import type { SearchQuery } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { DataTable } from "./Table";
 
-interface SearchQuery {
-  id: string;
-  searchTerm: string;
-  timestamp: Date;
-  resultCount: number;
-  results: any[];
+function HistorySkeleton() {
+  return (
+    <div className="mx-auto max-w-6xl p-6 lg:p-8">
+      <div className="animate-pulse space-y-8">
+        <div className="h-8 w-1/3 rounded-lg bg-muted" />
+        <div className="space-y-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-36 rounded-xl bg-muted" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function LeadsPage() {
-  const { user } = useAuth();
+export default function LeadsPage() {
+  const { user, loading } = useAuth();
   const [history, setHistory] = useState<SearchQuery[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [error, setError] = useState("");
   const [selectedQuery, setSelectedQuery] = useState<SearchQuery | null>(null);
-  const [showTable, setShowTable] = useState(false);
 
   useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      setLoadingHistory(false);
+      return;
+    }
+
+    let active = true;
     async function fetchSearchHistory() {
-      if (!user) return;
-      
       try {
-        setLoading(true);
-        const userHistory = await getUserSearchHistory(user.uid);
-        setHistory(userHistory);
+        setLoadingHistory(true);
+        setError("");
+        const userHistory = await getUserSearchHistory(user!.uid);
+        if (active) setHistory(userHistory);
       } catch (err) {
-        setError("Failed to load search history");
         console.error(err);
+        if (active) setError("Failed to load search history.");
       } finally {
-        setLoading(false);
+        if (active) setLoadingHistory(false);
       }
     }
-    
-    fetchSearchHistory();
-  }, [user]);
 
-  const viewQueryResults = (query: SearchQuery) => {
-    setSelectedQuery(query);
-    setShowTable(true);
-  };
+    fetchSearchHistory();
+    return () => {
+      active = false;
+    };
+  }, [user, loading]);
+
+  // While auth is resolving, show a skeleton - never flash "Access Denied".
+  if (loading || (user && loadingHistory)) {
+    return <HistorySkeleton />;
+  }
 
   if (!user) {
     return (
-      <div className="max-w-4xl mx-auto p-8">
-        <div className="text-center py-12">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Access Denied</h1>
-          <p className="text-gray-600 mb-6">Please sign in to view your search history and leads.</p>
-          <Link href="/auth" className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700">
-            Sign In
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="max-w-6xl mx-auto p-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-8"></div>
-          <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-20 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-        </div>
+      <div className="mx-auto max-w-2xl p-6 lg:p-8">
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 px-6 py-14 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <FolderSearch className="h-7 w-7" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-foreground">
+                Sign in to view your leads
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Your saved searches and lead history live behind your account.
+              </p>
+            </div>
+            <Button asChild>
+              <Link href="/auth">Sign in</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="max-w-4xl mx-auto p-8">
-        <div className="text-center py-12">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Error</h1>
-          <p className="text-red-600 mb-6">{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700"
-          >
-            Try Again
-          </button>
-        </div>
+      <div className="mx-auto max-w-2xl p-6 lg:p-8">
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 px-6 py-14 text-center">
+            <h1 className="text-xl font-semibold text-foreground">
+              Something went wrong
+            </h1>
+            <p className="text-sm text-destructive">{error}</p>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Try again
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  // If showing table view
-  if (showTable && selectedQuery) {
+  // Table view for a single selected search.
+  if (selectedQuery) {
     return (
-      <div className="max-w-7xl mx-auto p-8 overflow-y-scroll h-2/3">
-        {/* Header with back button */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+      <div className="mx-auto max-w-7xl p-6 lg:p-8">
+        <div className="mb-6">
+          <button
+            onClick={() => setSelectedQuery(null)}
+            className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to search history
+          </button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <button
-                onClick={() => setShowTable(false)}
-                className="flex items-center text-gray-600 hover:text-gray-800 mb-2"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Back to Search History
-              </button>
-              <h1 className="text-3xl font-bold text-gray-900 capitalize">
-                {selectedQuery.searchTerm} Results
+              <h1 className="text-2xl font-bold capitalize tracking-tight text-foreground">
+                {selectedQuery.searchTerm || "Search results"}
               </h1>
-              <p className="text-gray-600">
-                {format(new Date(selectedQuery.timestamp), "MMMM dd, yyyy 'at' h:mm a")} • {selectedQuery.resultCount} results
+              <p className="mt-1 text-sm text-muted-foreground">
+                {format(
+                  new Date(selectedQuery.timestamp),
+                  "MMMM d, yyyy 'at' h:mm a"
+                )}{" "}
+                &middot; {selectedQuery.resultCount} results
               </p>
             </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => {
-                  // Quick CSV export
-                  const csvContent = [
-                    ['Business Name', 'Address', 'Phone', 'Website', 'Lead Potential'].join(','),
-                    ...selectedQuery.results.map((business: any) => [
-                      `"${business.name.replace(/"/g, '""')}"`,
-                      `"${business.address.replace(/"/g, '""')}"`,
-                      `"${business.phone || 'N/A'}"`,
-                      `"${business.website || 'No Website'}"`,
-                      business.website ? 'Low' : 'High'
-                    ].join(','))
-                  ].join('\n');
-                  
-                  const blob = new Blob([csvContent], { type: 'text/csv' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `${selectedQuery.searchTerm}-leads.csv`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-                }}
-                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Export CSV
-              </button>
-              <Link 
-                href={`/dashboard/leads/${selectedQuery.id}`}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-              >
-                Detailed View
+            <Button asChild variant="outline">
+              <Link href={`/dashboard/leads/${selectedQuery.id}`}>
+                Detailed view
               </Link>
-            </div>
+            </Button>
           </div>
         </div>
 
-        {/* Data Table */}
-        <DataTable data={selectedQuery.results} />
+        <DataTable
+          data={selectedQuery.results}
+          filename={`${selectedQuery.searchTerm || "leads"}.csv`}
+        />
       </div>
     );
   }
 
-  // Main search history view
+  // Aggregate stats, guarded against an empty history.
+  const totalResults = history.reduce((sum, q) => sum + q.resultCount, 0);
+  const totalPotentialLeads = history.reduce(
+    (sum, q) => sum + q.results.filter((b) => !b.website).length,
+    0
+  );
+  const avgLeadRate =
+    totalResults > 0
+      ? Math.round((totalPotentialLeads / totalResults) * 100)
+      : 0;
+
   return (
-    <div className="max-w-6xl mx-auto p-8">
+    <div className="mx-auto max-w-6xl p-6 lg:p-8">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-3xl font-bold text-gray-900">Your Lead Searches</h1>
-          <Link 
-            href="/dashboard/search" 
-            className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition-colors"
-          >
-            New Search
-          </Link>
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Your lead searches
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            View and manage every business lead search in one place.
+          </p>
         </div>
-        <p className="text-gray-600">
-          View and manage all your business lead searches in one place.
-        </p>
+        <Button asChild>
+          <Link href="/dashboard/search">
+            <Plus className="h-4 w-4" />
+            New search
+          </Link>
+        </Button>
       </div>
 
-      {/* Search History */}
       {history.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="mb-4">
-            <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No searches yet</h3>
-          <p className="text-gray-600 mb-6">Start by creating your first business lead search.</p>
-          <Link 
-            href="/dashboard/search" 
-            className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Create Your First Search
-          </Link>
-        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 px-6 py-16 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <SearchIcon className="h-7 w-7" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">
+                No searches yet
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Start by creating your first business lead search.
+              </p>
+            </div>
+            <Button asChild>
+              <Link href="/dashboard/search">
+                <Plus className="h-4 w-4" />
+                Create your first search
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="space-y-4 overflow-y-scroll min-h-1/2 max-h-2/3">
-          {history.map((query) => {
-            const businessesWithoutWebsite = query.results?.filter((business: any) => !business.website).length || 0;
-            const conversionRate = query.resultCount > 0 ? Math.round((businessesWithoutWebsite / query.resultCount) * 100) : 0;
-            
-            return (
-              <div 
-                key={query.id} 
-                className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200"
-              >
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-semibold text-gray-900 capitalize">
+        <>
+          {/* Summary */}
+          <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <Card>
+              <CardContent className="px-5 py-5">
+                <div className="text-2xl font-bold text-foreground">
+                  {history.length}
+                </div>
+                <div className="mt-0.5 text-sm text-muted-foreground">
+                  Total searches
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="px-5 py-5">
+                <div className="text-2xl font-bold text-foreground">
+                  {totalResults}
+                </div>
+                <div className="mt-0.5 text-sm text-muted-foreground">
+                  Total results
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="px-5 py-5">
+                <div className="text-2xl font-bold text-success">
+                  {totalPotentialLeads}
+                </div>
+                <div className="mt-0.5 text-sm text-muted-foreground">
+                  Potential leads
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="px-5 py-5">
+                <div className="text-2xl font-bold text-primary">
+                  {avgLeadRate}%
+                </div>
+                <div className="mt-0.5 text-sm text-muted-foreground">
+                  Avg. lead rate
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* History list */}
+          <div className="space-y-4">
+            {history.map((query) => {
+              const withoutWebsite = query.results.filter(
+                (b) => !b.website
+              ).length;
+              const withPhone = query.results.filter((b) => b.phone).length;
+              const leadRate =
+                query.resultCount > 0
+                  ? Math.round((withoutWebsite / query.resultCount) * 100)
+                  : 0;
+
+              return (
+                <Card
+                  key={query.id}
+                  className="transition-shadow hover:shadow-md"
+                >
+                  <CardHeader className="flex-row items-start justify-between gap-4 pb-0">
+                    <div>
+                      <CardTitle className="text-lg capitalize">
                         {query.searchTerm}
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {format(new Date(query.timestamp), "MMMM dd, yyyy 'at' h:mm a")}
+                      </CardTitle>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {format(
+                          new Date(query.timestamp),
+                          "MMMM d, yyyy 'at' h:mm a"
+                        )}
                       </p>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-blue-600">{query.resultCount}</div>
-                      <div className="text-sm text-gray-500">total results</div>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="text-lg font-semibold text-green-600">{businessesWithoutWebsite}</div>
-                      <div className="text-sm text-gray-600">Without Website</div>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="text-lg font-semibold text-purple-600">{conversionRate}%</div>
-                      <div className="text-sm text-gray-600">Potential Leads</div>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="text-lg font-semibold text-blue-600">
-                        {query.results?.filter((b: any) => b.phone).length || 0}
+                      <div className="text-2xl font-bold text-primary">
+                        {query.resultCount}
                       </div>
-                      <div className="text-sm text-gray-600">With Phone</div>
+                      <div className="text-xs text-muted-foreground">
+                        results
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between space-x-4">
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={() => viewQueryResults(query)}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <div className="mb-4 flex flex-wrap gap-2">
+                      <Badge variant="success">
+                        {withoutWebsite} without website
+                      </Badge>
+                      <Badge variant="secondary">
+                        {leadRate}% potential leads
+                      </Badge>
+                      <Badge variant="muted">{withPhone} with phone</Badge>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => setSelectedQuery(query)}
                       >
-                        View Table
-                      </button>
-                      <Link 
-                        href={`/dashboard/leads/${query.id}`}
-                        className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors"
+                        View table
+                      </Button>
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={`/dashboard/leads/${query.id}`}>
+                          Detailed view
+                        </Link>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          downloadLeadsCsv(
+                            query.results,
+                            `${query.searchTerm || "leads"}.csv`
+                          )
+                        }
+                        disabled={query.results.length === 0}
                       >
-                        Detailed View
-                      </Link>
+                        <Download className="h-4 w-4" />
+                        Export CSV
+                      </Button>
                     </div>
-                    <div className="text-sm text-gray-500">
-                      Click to explore results
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Summary Stats */}
-      {history.length > 0 && (
-        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Search Summary</h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{history.length}</div>
-              <div className="text-sm text-gray-600">Total Searches</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {history.reduce((sum, query) => sum + query.resultCount, 0)}
-              </div>
-              <div className="text-sm text-gray-600">Total Results</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
-                {history.reduce((sum, query) => 
-                  sum + (query.results?.filter((business: any) => !business.website).length || 0), 0
-                )}
-              </div>
-              <div className="text-sm text-gray-600">Potential Leads</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">
-                {Math.round(
-                  (history.reduce((sum, query) => 
-                    sum + (query.results?.filter((business: any) => !business.website).length || 0), 0
-                  ) / history.reduce((sum, query) => sum + query.resultCount, 0)) * 100
-                )}%
-              </div>
-              <div className="text-sm text-gray-600">Avg. Lead Rate</div>
-            </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
-        </div>
+        </>
       )}
     </div>
   );
 }
-
-export default LeadsPage;

@@ -1,18 +1,34 @@
 "use client";
 
 import Image from "next/image";
-import { Star, MapPin, Phone, Globe, ExternalLink } from "lucide-react";
+import {
+  Star,
+  MapPin,
+  Phone,
+  Globe,
+  ExternalLink,
+  UserPlus,
+  Check,
+} from "lucide-react";
 import type { Business } from "@/lib/types";
 import { businessPhotoUrl } from "@/lib/photo";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 /** Consistent leads table used by the search page and saved-lead views. */
 export default function LeadResultsTable({
   businesses,
   className,
+  onAddToCrm,
+  addedPlaceIds,
+  addingPlaceId,
 }: {
   businesses: Business[];
   className?: string;
+  /** When provided, an "Add to CRM" action column is shown per row. */
+  onAddToCrm?: (business: Business) => void;
+  addedPlaceIds?: Set<string>;
+  addingPlaceId?: string | null;
 }) {
   if (businesses.length === 0) return null;
 
@@ -25,6 +41,7 @@ export default function LeadResultsTable({
             <th className="px-4 py-3 font-medium">Contact</th>
             <th className="px-4 py-3 font-medium">Rating</th>
             <th className="px-4 py-3 font-medium">Links</th>
+            {onAddToCrm && <th className="px-4 py-3 font-medium">CRM</th>}
           </tr>
         </thead>
         <tbody className="divide-y">
@@ -111,6 +128,26 @@ export default function LeadResultsTable({
                     )}
                   </div>
                 </td>
+                {onAddToCrm && (
+                  <td className="px-4 py-3">
+                    {addedPlaceIds?.has(b.place_id) ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-success">
+                        <Check className="h-3.5 w-3.5" />
+                        Added
+                      </span>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onAddToCrm(b)}
+                        disabled={addingPlaceId === b.place_id}
+                      >
+                        <UserPlus className="h-3.5 w-3.5" />
+                        {addingPlaceId === b.place_id ? "Adding..." : "Add"}
+                      </Button>
+                    )}
+                  </td>
+                )}
               </tr>
             );
           })}

@@ -8,12 +8,14 @@ import {
   SidebarButton,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/components/AuthProvider";
+import { WorkspaceProvider } from "@/components/WorkspaceProvider";
 import {
   IconArrowLeft,
   IconBrandTabler,
   IconSettings,
   IconList,
   IconSearch,
+  IconUsers,
 } from "@tabler/icons-react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
@@ -49,6 +51,13 @@ export default function DashboardLayout({
       ),
     },
     {
+      label: "Contacts",
+      href: "/dashboard/contacts",
+      icon: (
+        <IconUsers className="h-5 w-5 shrink-0 text-sidebar-foreground/70" />
+      ),
+    },
+    {
       label: "Settings",
       href: "/dashboard/settings",
       icon: (
@@ -61,6 +70,7 @@ export default function DashboardLayout({
     user?.providerData?.[0]?.photoURL ?? user?.photoURL ?? null;
 
   return (
+    <WorkspaceProvider>
     <div
       className={cn(
         "flex h-screen w-screen flex-1 flex-col overflow-hidden bg-background md:flex-row"
@@ -123,6 +133,7 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+    </WorkspaceProvider>
   );
 }
 

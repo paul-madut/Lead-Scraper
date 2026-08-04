@@ -7,19 +7,42 @@ import LeadResultsTable from "@/components/LeadResultsTable";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/components/AuthProvider";
+import { useWorkspace } from "@/components/WorkspaceProvider";
 import { getTokenBalance } from "@/services/tokenService";
+import { promoteBusinessToContact } from "@/services/contacts";
 import { downloadLeadsCsv } from "@/lib/export";
 import type { Business, SearchMeta } from "@/lib/types";
 
 export default function SearchPage() {
   const { user, loading: authLoading } = useAuth();
+  const { workspaceId } = useWorkspace();
   const [balance, setBalance] = useState<number | null>(null);
   const [results, setResults] = useState<Business[]>([]);
   const [meta, setMeta] = useState<SearchMeta | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [addedPlaceIds, setAddedPlaceIds] = useState<Set<string>>(new Set());
+  const [addingPlaceId, setAddingPlaceId] = useState<string | null>(null);
   const lastParams = useRef<SearchParams | null>(null);
   const inFlight = useRef(false);
+
+  const handleAddToCrm = useCallback(
+    async (business: Business) => {
+      if (!user || !workspaceId) return;
+      setAddingPlaceId(business.place_id);
+      try {
+        await promoteBusinessToContact(workspaceId, user.uid, business);
+        setAddedPlaceIds((prev) => new Set(prev).add(business.place_id));
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Could not add contact to the CRM."
+        );
+      } finally {
+        setAddingPlaceId(null);
+      }
+    },
+    [user, workspaceId]
+  );
 
   useEffect(() => {
     let ignore = false;
@@ -162,7 +185,12 @@ export default function SearchPage() {
             )}
           </CardHeader>
           <CardContent className="space-y-4">
-            <LeadResultsTable businesses={results} />
+            <LeadResultsTable
+              businesses={results}
+              onAddToCrm={workspaceId ? handleAddToCrm : undefined}
+              addedPlaceIds={addedPlaceIds}
+              addingPlaceId={addingPlaceId}
+            />
 
             {exhausted ? (
               <div className="flex items-center justify-center gap-2 rounded-lg border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">

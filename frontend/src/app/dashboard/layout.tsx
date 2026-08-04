@@ -16,6 +16,7 @@ import {
   IconList,
   IconSearch,
   IconUsers,
+  IconMessage,
 } from "@tabler/icons-react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,13 @@ export default function DashboardLayout({
       href: "/dashboard/contacts",
       icon: (
         <IconUsers className="h-5 w-5 shrink-0 text-sidebar-foreground/70" />
+      ),
+    },
+    {
+      label: "Inbox",
+      href: "/dashboard/inbox",
+      icon: (
+        <IconMessage className="h-5 w-5 shrink-0 text-sidebar-foreground/70" />
       ),
     },
     {

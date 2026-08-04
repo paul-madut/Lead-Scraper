@@ -24,6 +24,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { sendSmsMessage } from "@/services/messaging";
 import { PIPELINE_STAGES, stageLabel, stageTone } from "@/lib/crm";
 import type { Activity, Contact, ConsentState } from "@/lib/types";
 
@@ -41,6 +43,9 @@ export default function ContactDetailPage() {
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [sms, setSms] = useState("");
+  const [smsSending, setSmsSending] = useState(false);
+  const [smsError, setSmsError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!params?.id) return;
@@ -82,6 +87,26 @@ export default function ContactDetailPage() {
       await refresh();
     } finally {
       setSaving(false);
+    }
+  };
+
+  const onSendSms = async () => {
+    if (!contact || !user || !contact.phone || !sms.trim()) return;
+    setSmsSending(true);
+    setSmsError(null);
+    try {
+      const token = await user.getIdToken();
+      await sendSmsMessage(token, {
+        to: contact.phone,
+        body: sms.trim(),
+        contactId: contact.id,
+      });
+      setSms("");
+      await refresh();
+    } catch (err) {
+      setSmsError(err instanceof Error ? err.message : "Failed to send.");
+    } finally {
+      setSmsSending(false);
     }
   };
 
@@ -202,6 +227,44 @@ export default function ContactDetailPage() {
           />
         </CardContent>
       </Card>
+
+      {/* Quick SMS */}
+      {contact.phone && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Send SMS</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {contact.optOutSms ? (
+              <p className="text-sm text-muted-foreground">
+                This contact has opted out of SMS. Texting is disabled.
+              </p>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    value={sms}
+                    onChange={(e) => setSms(e.target.value)}
+                    placeholder={`Text ${contact.name}...`}
+                    disabled={smsSending}
+                  />
+                  <Button onClick={onSendSms} disabled={smsSending || !sms.trim()}>
+                    {smsSending ? "Sending..." : "Send"}
+                  </Button>
+                </div>
+                {smsError && <p className="text-sm text-destructive">{smsError}</p>}
+                <p className="text-xs text-muted-foreground">
+                  Replies land in your{" "}
+                  <Link href="/dashboard/inbox" className="text-primary hover:underline">
+                    inbox
+                  </Link>
+                  .
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Notes + timeline */}
       <Card>

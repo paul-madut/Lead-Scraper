@@ -11,6 +11,35 @@ export function isTwilioConfigured(): boolean {
   );
 }
 
+export function isVoiceConfigured(): boolean {
+  return Boolean(
+    process.env.TWILIO_ACCOUNT_SID &&
+      process.env.TWILIO_API_KEY &&
+      process.env.TWILIO_API_SECRET &&
+      process.env.TWILIO_TWIML_APP_SID
+  );
+}
+
+/** Mint a browser Voice access token for a given client identity. */
+export function generateVoiceToken(identity: string): string {
+  const { AccessToken } = twilio.jwt;
+  const VoiceGrant = AccessToken.VoiceGrant;
+
+  const token = new AccessToken(
+    process.env.TWILIO_ACCOUNT_SID!,
+    process.env.TWILIO_API_KEY!,
+    process.env.TWILIO_API_SECRET!,
+    { identity, ttl: 3600 }
+  );
+  token.addGrant(
+    new VoiceGrant({
+      outgoingApplicationSid: process.env.TWILIO_TWIML_APP_SID!,
+      incomingAllow: false,
+    })
+  );
+  return token.toJwt();
+}
+
 export function getTwilioClient() {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;

@@ -72,6 +72,10 @@ service cloud.firestore {
       allow read: if isMember(resource.data.workspaceId);
       allow write: if false;
     }
+    match /calls/{callId} {
+      allow read: if isMember(resource.data.workspaceId);
+      allow write: if false;
+    }
 
     // Deny everything else by default.
     match /{document=**} {

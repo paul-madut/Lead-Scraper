@@ -219,3 +219,26 @@ export interface Message {
   errorMessage: string | null;
   createdAt: Date;
 }
+
+// --- Calls (Phase 2) ---
+
+export type CallOutcome =
+  | "completed"
+  | "no-answer"
+  | "busy"
+  | "failed"
+  | "canceled";
+
+export interface Call {
+  id: string;
+  workspaceId: string;
+  contactId: string | null;
+  direction: MessageDirection;
+  from: string;
+  to: string;
+  outcome: CallOutcome;
+  durationSec: number;
+  twilioCallSid: string | null;
+  createdBy: string;
+  createdAt: Date;
+}

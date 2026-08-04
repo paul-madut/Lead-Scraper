@@ -12,12 +12,11 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/firebase/config';
 import { AuthContextType } from '@/lib/types';
-import { createTokenDocument } from '@/services/tokenService';
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
-  signInWithGoogle: async () => null,
+  signInWithGoogle: async () => {},
   signOut: async () => {},
   authError: null
 });
@@ -38,16 +37,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const result = await getRedirectResult(auth);
         
         if (result && mounted) {
-          // Successfully returned from redirect
+          // Successfully returned from redirect. The token document is created
+          // lazily server-side on the first balance read, so nothing to do here.
           setUser(result.user);
           setIsRedirecting(false);
-          
-          // Create token document for new user
-          try {
-            await createTokenDocument();
-          } catch (tokenError) {
-            console.error('Error creating token document:', tokenError);
-          }
         }
       } catch (error) {
         console.error('Error getting redirect result:', error);
@@ -61,18 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener
     const unsubscribe = onAuthStateChanged(
       auth,
-      async (currentUser) => {
+      (currentUser) => {
         if (!mounted) return;
-        
-        if (currentUser) {
-          // Ensure token document exists for authenticated users
-          try {
-            await createTokenDocument();
-          } catch (tokenError) {
-            console.error('Error creating token document:', tokenError);
-          }
-        }
-        
         setUser(currentUser);
         setLoading(false);
         setIsRedirecting(false);
@@ -112,7 +95,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Always use redirect for consistency
       await signInWithRedirect(auth, provider);
-      return null;
     } catch (error) {
       console.error('Error during Google sign-in:', error);
       setAuthError(error as AuthError);

@@ -1,150 +1,136 @@
-import { useState } from 'react'
-import Link from 'next/link'
-import Image from 'next/image'
-import { getTokenBalance } from '../services/tokenService';
-import { useEffect } from 'react';
-import { useAuth } from '@/components/AuthProvider';
-import { useRouter } from 'next/navigation';
+"use client";
 
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { Menu, X, Coins } from "lucide-react";
+import { getTokenBalance } from "../services/tokenService";
+import { useAuth } from "@/components/AuthProvider";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-export default function Navbar({ tokens = 200, }) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+export default function Navbar() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user } = useAuth();
   const [userTokens, setUserTokens] = useState<number | null>(null);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
-  const navigate = useRouter();
-  
+
   useEffect(() => {
-      async function fetchTokenBalance() {
-        if (!user) {
-          setUserTokens(null);
-          return;
-        }
-        
-        setIsLoadingTokens(true);
-        try {
-          const currentBalance  = await getTokenBalance();
-          setUserTokens(currentBalance);
-        } catch (error) {
-          console.error('Error fetching token balance:', error);
-          // Don't show error to user, just set to null
-          setUserTokens(null);
-        } finally {
-          setIsLoadingTokens(false);
-        }
+    let active = true;
+
+    async function fetchTokenBalance() {
+      if (!user) {
+        setUserTokens(null);
+        return;
       }
-      
-      fetchTokenBalance();
-    }, [user]);
+
+      setIsLoadingTokens(true);
+      try {
+        const currentBalance = await getTokenBalance();
+        if (active) setUserTokens(currentBalance);
+      } catch (error) {
+        console.error("Error fetching token balance:", error);
+        if (active) setUserTokens(null);
+      } finally {
+        if (active) setIsLoadingTokens(false);
+      }
+    }
+
+    fetchTokenBalance();
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  const tokenValue = isLoadingTokens
+    ? "..."
+    : userTokens != null
+      ? userTokens.toLocaleString()
+      : "-";
 
   return (
-    <nav className="bg-[#f5f5f5] border-b-2 border-gray-200 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo/Brand */}
+    <nav className="border-b bg-card px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="flex h-16 items-center justify-between">
+          {/* Logo / Brand */}
           <div className="flex items-center">
-            <div className="flex-shrink-0 flex items-center">
-              {/* Business Logo - replace with your actual logo */}
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
-                <Image src="/logo.png" alt="Business Logo" width={32} height={32}></Image>
-              </div>
-              <span className="text-xl font-semibold text-gray-900 hidden sm:block">
-                B2Lead
-              </span>
-              <span className="text-lg font-semibold text-gray-900 sm:hidden">
-                B2L
-              </span>
+            <div className="mr-3 flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+              <Image src="/logo.png" alt="B2Lead" width={32} height={32} />
             </div>
+            <span className="hidden text-xl font-semibold text-foreground sm:block">
+              B2Lead
+            </span>
+            <span className="text-lg font-semibold text-foreground sm:hidden">
+              B2L
+            </span>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-6">
+          <div className="hidden items-center gap-6 md:flex">
             {/* Token Display */}
-            <div className="flex items-center space-x-2 bg-gray-50 px-3 py-2 rounded-lg">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span className="text-sm font-medium text-gray-700">
+            <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
+              <Coins className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-muted-foreground">
                 Available Tokens:
               </span>
-              <span className="text-sm font-bold text-blue-600">
-                {userTokens?.toLocaleString()}
-              </span>
+              <span className="text-sm font-bold text-primary">{tokenValue}</span>
             </div>
 
-            {/* Get More Tokens Button */}
-            <Link href="/dashboard/tokens">
-            <button
-              
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              >
+            <Link
+              href="/dashboard/tokens"
+              className={cn(buttonVariants({ variant: "default", size: "sm" }))}
+            >
               Get More Tokens
-            </button>
-                </Link>
+            </Link>
           </div>
 
           {/* Mobile menu button */}
           <div className="md:hidden">
             <button
+              type="button"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="text-gray-500 hover:text-gray-700 focus:outline-none focus:text-gray-700 p-2"
+              aria-label="Toggle menu"
+              className="rounded-md p-2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                {isMenuOpen ? (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                ) : (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                )}
-              </svg>
+              {isMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
             </button>
           </div>
         </div>
 
         {/* Mobile Navigation Menu */}
         {isMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 pt-4 pb-4">
-            <div className="flex flex-col space-y-3">
+          <div className="border-t pt-4 pb-4 md:hidden">
+            <div className="flex flex-col gap-3">
               {/* Mobile Token Display */}
-              <div className="flex items-center justify-between bg-gray-50 px-3 py-3 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-gray-700">
+              <div className="flex items-center justify-between rounded-lg bg-muted px-3 py-3">
+                <div className="flex items-center gap-2">
+                  <Coins className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium text-muted-foreground">
                     Available Tokens:
                   </span>
                 </div>
-                <span className="text-sm font-bold text-blue-600">
-                  {userTokens?.toLocaleString() || '0'}
-                </span>
+                <span className="text-sm font-bold text-primary">{tokenValue}</span>
               </div>
 
-              {/* Mobile Get More Tokens Button */}
-              <button
-                onClick={() => {
-                  setIsMenuOpen(false)
-                }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              <Link
+                href="/dashboard/tokens"
+                onClick={() => setIsMenuOpen(false)}
+                className={cn(
+                  buttonVariants({ variant: "default" }),
+                  "w-full"
+                )}
               >
-                <Link href={'/dashboard/tokens'}> 
                 Get More Tokens
-                </Link>
-              </button>
+              </Link>
             </div>
           </div>
         )}
       </div>
     </nav>
-  )
+  );
 }

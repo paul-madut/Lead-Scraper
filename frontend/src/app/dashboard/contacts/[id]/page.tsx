@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ContactCallButton from "@/components/ContactCallButton";
+import ContactSequences from "@/components/ContactSequences";
 import { sendSmsMessage } from "@/services/messaging";
 import { PIPELINE_STAGES, stageLabel, stageTone } from "@/lib/crm";
 import type { Activity, Contact, ConsentState } from "@/lib/types";
@@ -275,6 +276,9 @@ export default function ContactDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Sequences */}
+      <ContactSequences contactId={contact.id} />
 
       {/* Notes + timeline */}
       <Card>

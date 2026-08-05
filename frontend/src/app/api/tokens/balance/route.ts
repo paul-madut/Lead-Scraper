@@ -10,7 +10,11 @@ export async function GET(request: Request) {
 
   try {
     const balance = await AdminTokenService.getTokenBalance(auth.uid);
-    return NextResponse.json({ success: true, balance });
+    // Per-user, changes on every search: never let a browser or proxy cache it.
+    return NextResponse.json(
+      { success: true, balance },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   } catch (error) {
     console.error("Error getting token balance:", error);
     return NextResponse.json(

@@ -1,14 +1,15 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { 
-  GoogleAuthProvider, 
-  signOut as firebaseSignOut, 
-  onAuthStateChanged, 
-  User, 
+import {
+  GoogleAuthProvider,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  User,
+  signInWithPopup,
   signInWithRedirect,
-  AuthError, 
-  getRedirectResult 
+  AuthError,
+  getRedirectResult
 } from 'firebase/auth';
 import { auth } from '@/firebase/config';
 import { AuthContextType } from '@/lib/types';
@@ -79,28 +80,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Sign in with Google using redirect only
+  // Sign in with Google. Popup is the primary flow: it keeps the credential
+  // exchange in-memory and avoids the cross-domain storage problem that breaks
+  // signInWithRedirect when the Firebase auth handler
+  // (<project>.firebaseapp.com) is a different origin than the app and the
+  // browser partitions third-party storage. Redirect is only used as a
+  // fallback when the popup itself can't open.
   const signInWithGoogle = async () => {
     setLoading(true);
     setAuthError(null);
-    setIsRedirecting(true);
-    
-    try {
-      const provider = new GoogleAuthProvider();
-      
-      // Configure provider
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      });
 
-      // Always use redirect for consistency
-      await signInWithRedirect(auth, provider);
-    } catch (error) {
-      console.error('Error during Google sign-in:', error);
-      setAuthError(error as AuthError);
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    try {
+      const result = await signInWithPopup(auth, provider);
+      // onAuthStateChanged will also fire, but set eagerly so the /auth page
+      // can redirect without waiting a tick.
+      setUser(result.user);
       setLoading(false);
-      setIsRedirecting(false);
-      throw error;
+    } catch (error) {
+      const code = (error as AuthError)?.code ?? '';
+      const popupUnavailable =
+        code === 'auth/popup-blocked' ||
+        code === 'auth/operation-not-supported-in-this-environment';
+      // A user closing/cancelling the popup is not an error worth surfacing.
+      const userCancelled =
+        code === 'auth/cancelled-popup-request' ||
+        code === 'auth/popup-closed-by-user';
+
+      if (popupUnavailable) {
+        setIsRedirecting(true);
+        try {
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectError) {
+          console.error('Error during Google sign-in (redirect):', redirectError);
+          setAuthError(redirectError as AuthError);
+          setIsRedirecting(false);
+          setLoading(false);
+          throw redirectError;
+        }
+      }
+
+      if (!userCancelled) {
+        console.error('Error during Google sign-in:', error);
+        setAuthError(error as AuthError);
+      }
+      setLoading(false);
     }
   };
 

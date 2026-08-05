@@ -86,7 +86,7 @@ export default function AuthPage() {
               {isBusy && (
                 <div className="flex items-start gap-2 rounded-md border border-primary/30 bg-accent p-3 text-sm text-accent-foreground">
                   <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
-                  <span>Redirecting to Google for secure sign-in...</span>
+                  <span>Opening secure Google sign-in...</span>
                 </div>
               )}
 

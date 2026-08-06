@@ -16,10 +16,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import type { Sequence, SequenceStep } from "@/lib/types";
+import { SUPPORTED_MERGE_FIELDS } from "@/lib/sms-template";
+import type { Sequence, SendWindow, SequenceStep } from "@/lib/types";
 
 let stepCounter = 0;
 const newId = () => `s${Date.now()}_${stepCounter++}`;
+
+const DEFAULT_SEND_WINDOW: SendWindow = { startHour: 8, endHour: 21 };
+const MERGE_HINT = SUPPORTED_MERGE_FIELDS.map((f) => `{{${f}}}`).join(" ");
+
+const clampHour = (raw: string, lo: number, hi: number) =>
+  Math.max(lo, Math.min(hi, parseInt(raw, 10) || lo));
+
+// Show whole-day waits in days, sub-day waits in hours, by default.
+const defaultUnit = (hours: number): "hours" | "days" =>
+  hours >= 24 && hours % 24 === 0 ? "days" : "hours";
 
 export default function SequenceBuilderPage() {
   const params = useParams<{ id: string }>();
@@ -28,6 +39,8 @@ export default function SequenceBuilderPage() {
   const [steps, setSteps] = useState<SequenceStep[]>([]);
   const [name, setName] = useState("");
   const [stopOnReply, setStopOnReply] = useState(true);
+  const [sendWindow, setSendWindow] = useState<SendWindow>(DEFAULT_SEND_WINDOW);
+  const [waitUnit, setWaitUnit] = useState<Record<string, "hours" | "days">>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -42,6 +55,7 @@ export default function SequenceBuilderPage() {
         setSteps(s.steps);
         setName(s.name);
         setStopOnReply(s.stopOnReply);
+        setSendWindow(s.sendWindow ?? DEFAULT_SEND_WINDOW);
       })
       .finally(() => !ignore && setLoading(false));
     return () => {
@@ -70,7 +84,7 @@ export default function SequenceBuilderPage() {
       type === "sms"
         ? { id: newId(), type: "sms", body: "" }
         : type === "wait"
-          ? { id: newId(), type: "wait", days: 1 }
+          ? { id: newId(), type: "wait", hours: 24 }
           : { id: newId(), type: "branch", condition: "replied", jumpTo: -1 };
     setSteps((prev) => [...prev, step]);
   };
@@ -85,13 +99,13 @@ export default function SequenceBuilderPage() {
     setSteps((prev) => prev.filter((s) => s.id !== id));
   };
 
-  const saveSteps = () => persist({ steps, name, stopOnReply });
+  const saveSteps = () => persist({ steps, name, stopOnReply, sendWindow });
 
   const toggleActive = () => {
     if (!seq) return;
     const next = seq.status === "active" ? "draft" : "active";
     setSeq({ ...seq, status: next });
-    persist({ status: next, steps, name, stopOnReply });
+    persist({ status: next, steps, name, stopOnReply, sendWindow });
   };
 
   const onDelete = async () => {
@@ -99,6 +113,9 @@ export default function SequenceBuilderPage() {
     await deleteSequence(params.id);
     router.push("/dashboard/sequences");
   };
+
+  // The first SMS is where the opt-out line is auto-appended at send time.
+  const firstSmsIndex = steps.findIndex((s) => s.type === "sms");
 
   if (loading) {
     return (
@@ -154,6 +171,47 @@ export default function SequenceBuilderPage() {
             />
             Stop the sequence automatically when the contact replies
           </label>
+
+          <div className="space-y-1.5 border-t pt-4">
+            <span className="text-sm font-medium">Quiet hours</span>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Only text between</span>
+              <Input
+                type="number"
+                min={0}
+                max={23}
+                value={sendWindow.startHour}
+                onChange={(e) =>
+                  setSendWindow((w) => ({
+                    ...w,
+                    startHour: clampHour(e.target.value, 0, 23),
+                  }))
+                }
+                className="w-16"
+              />
+              <span className="text-muted-foreground">:00 and</span>
+              <Input
+                type="number"
+                min={1}
+                max={24}
+                value={sendWindow.endHour}
+                onChange={(e) =>
+                  setSendWindow((w) => ({
+                    ...w,
+                    endHour: clampHour(e.target.value, 1, 24),
+                  }))
+                }
+                className="w-16"
+              />
+              <span className="text-muted-foreground">
+                :00, in each contact&apos;s local time
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Sends outside this window are held until it reopens. 8-21 keeps you
+              inside the TCPA 8am-9pm rule.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -201,29 +259,29 @@ export default function SequenceBuilderPage() {
               </div>
 
               {step.type === "sms" && (
-                <textarea
-                  value={step.body}
-                  onChange={(e) => updateStep(step.id, { body: e.target.value })}
-                  placeholder="Message text..."
-                  rows={2}
-                  className="w-full resize-y rounded-md border bg-card px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                />
+                <div className="space-y-1.5">
+                  <textarea
+                    value={step.body}
+                    onChange={(e) => updateStep(step.id, { body: e.target.value })}
+                    placeholder="Message text..."
+                    rows={2}
+                    className="w-full resize-y rounded-md border bg-card px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Merge fields: {MERGE_HINT}
+                    {i === firstSmsIndex && " · an opt-out line is added automatically"}
+                  </p>
+                </div>
               )}
               {step.type === "wait" && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span>Wait</span>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={step.days}
-                    onChange={(e) =>
-                      updateStep(step.id, { days: parseInt(e.target.value) || 1 })
-                    }
-                    className="w-20"
-                  />
-                  <span>day(s) before the next step</span>
-                </div>
+                <WaitStepEditor
+                  hours={step.hours}
+                  unit={waitUnit[step.id] ?? defaultUnit(step.hours)}
+                  onUnitChange={(u) =>
+                    setWaitUnit((m) => ({ ...m, [step.id]: u }))
+                  }
+                  onHoursChange={(h) => updateStep(step.id, { hours: h })}
+                />
               )}
               {step.type === "branch" && (
                 <p className="text-sm text-muted-foreground">
@@ -259,6 +317,44 @@ export default function SequenceBuilderPage() {
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function WaitStepEditor({
+  hours,
+  unit,
+  onUnitChange,
+  onHoursChange,
+}: {
+  hours: number;
+  unit: "hours" | "days";
+  onUnitChange: (u: "hours" | "days") => void;
+  onHoursChange: (hours: number) => void;
+}) {
+  const displayValue = unit === "days" ? hours / 24 : hours;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span>Wait</span>
+      <Input
+        type="number"
+        min={1}
+        value={displayValue}
+        onChange={(e) => {
+          const n = Math.max(1, parseInt(e.target.value, 10) || 1);
+          onHoursChange(unit === "days" ? n * 24 : n);
+        }}
+        className="w-20"
+      />
+      <select
+        value={unit}
+        onChange={(e) => onUnitChange(e.target.value as "hours" | "days")}
+        className="rounded-md border bg-card px-2 py-2 text-sm outline-none focus:border-primary"
+      >
+        <option value="hours">hour(s)</option>
+        <option value="days">day(s)</option>
+      </select>
+      <span className="text-muted-foreground">before the next step</span>
     </div>
   );
 }

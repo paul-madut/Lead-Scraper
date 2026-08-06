@@ -16,7 +16,12 @@ import {
   type Timestamp,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
-import type { Enrollment, Sequence, SequenceStep } from "@/lib/types";
+import type {
+  Enrollment,
+  SendWindow,
+  Sequence,
+  SequenceStep,
+} from "@/lib/types";
 
 const toDate = (v: Timestamp | undefined | null): Date => v?.toDate?.() ?? new Date(0);
 
@@ -28,6 +33,7 @@ function toSequence(snap: QueryDocumentSnapshot<DocumentData>): Sequence {
     name: d.name ?? "Untitled",
     status: d.status ?? "draft",
     stopOnReply: d.stopOnReply ?? true,
+    sendWindow: d.sendWindow ?? undefined,
     steps: Array.isArray(d.steps) ? d.steps : [],
     createdBy: d.createdBy ?? "",
     createdAt: toDate(d.createdAt),
@@ -71,7 +77,13 @@ export async function getSequence(id: string): Promise<Sequence | null> {
 
 export async function updateSequence(
   id: string,
-  patch: { name?: string; status?: "draft" | "active"; stopOnReply?: boolean; steps?: SequenceStep[] }
+  patch: {
+    name?: string;
+    status?: "draft" | "active";
+    stopOnReply?: boolean;
+    sendWindow?: SendWindow;
+    steps?: SequenceStep[];
+  }
 ): Promise<void> {
   await updateDoc(doc(db, "sequences", id), { ...patch, updatedAt: serverTimestamp() });
 }
@@ -98,6 +110,35 @@ export async function enrollContactApi(
   return { ok: true };
 }
 
+export interface BulkEnrollResponse {
+  ok: boolean;
+  enrolled?: number;
+  skipped?: { contactId: string; reason: string }[];
+  reason?: string;
+}
+
+/** Enroll many contacts at once, optionally scheduled for a future start. */
+export async function enrollBulkApi(
+  idToken: string,
+  params: { sequenceId: string; contactIds: string[]; startAt?: Date }
+): Promise<BulkEnrollResponse> {
+  const res = await fetch("/api/flows/enroll-bulk", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({
+      sequenceId: params.sequenceId,
+      contactIds: params.contactIds,
+      startAt: params.startAt ? params.startAt.toISOString() : undefined,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) return { ok: false, reason: data.reason || data.error || "Failed" };
+  return { ok: true, enrolled: data.enrolled, skipped: data.skipped };
+}
+
 export async function listContactEnrollments(contactId: string): Promise<Enrollment[]> {
   const q = query(
     collection(db, "enrollments"),
@@ -116,6 +157,7 @@ export async function listContactEnrollments(contactId: string): Promise<Enrollm
       currentStep: d.currentStep ?? 0,
       status: d.status ?? "active",
       startedAt: toDate(d.startedAt),
+      scheduledStart: d.scheduledStart ? toDate(d.scheduledStart) : undefined,
       nextRunAt: toDate(d.nextRunAt),
       lastError: d.lastError ?? null,
     };

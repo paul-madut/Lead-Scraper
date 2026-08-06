@@ -8,9 +8,15 @@ import {
   isContactOptedOut,
   recordMessage,
 } from "@/services/messaging-server";
-import type { SequenceStep } from "@/lib/types";
+import { nextSendTime, timezoneForPhone } from "@/lib/phone-timezone";
+import { ensureOptOut, renderTemplate } from "@/lib/sms-template";
+import type { SendWindow, SequenceStep } from "@/lib/types";
 
-const DAY_MS = 86_400_000;
+const HOUR_MS = 3_600_000;
+const DEFAULT_SEND_WINDOW: SendWindow = { startHour: 8, endHour: 21 };
+// Default spacing between successive contacts in a bulk enroll, so a batch
+// doesn't fire from one number in the same second (a carrier spam signal).
+const DEFAULT_SPACING_SECONDS = 45;
 
 const getAdminDb = async () => {
   if (typeof window !== "undefined") {
@@ -44,6 +50,8 @@ export async function enrollContact(params: {
   workspaceId: string;
   sequenceId: string;
   contactId: string;
+  /** When the first step should fire. Defaults to now (send immediately). */
+  startAt?: Date;
 }): Promise<EnrollResult> {
   const adminDb = await getAdminDb();
 
@@ -76,6 +84,7 @@ export async function enrollContact(params: {
   }
 
   const now = new Date();
+  const start = params.startAt && params.startAt > now ? params.startAt : now;
   await adminDb.collection("enrollments").add({
     workspaceId: params.workspaceId,
     sequenceId: params.sequenceId,
@@ -84,18 +93,59 @@ export async function enrollContact(params: {
     currentStep: 0,
     status: "active",
     startedAt: now,
-    nextRunAt: now,
+    scheduledStart: start,
+    nextRunAt: start,
     lastError: null,
   });
+  const seqName = seqSnap.data()?.name ?? params.sequenceId;
+  const when =
+    start > now ? ` (scheduled for ${start.toLocaleString()})` : "";
   await addContactActivityAdmin({
     workspaceId: params.workspaceId,
     contactId: params.contactId,
     type: "note",
-    body: `Enrolled in sequence "${seqSnap.data()?.name ?? params.sequenceId}"`,
+    body: `Enrolled in sequence "${seqName}"${when}`,
     direction: null,
     createdBy: "system",
   });
   return { enrolled: true };
+}
+
+export interface BulkEnrollResult {
+  enrolled: number;
+  skipped: { contactId: string; reason: string }[];
+}
+
+/**
+ * Enroll many contacts into one sequence with a shared start, staggering each
+ * successive contact by `spacingSeconds` so the batch doesn't burst from a
+ * single number. Skips (already-enrolled, no phone) are reported, not fatal.
+ */
+export async function enrollContactsBulk(params: {
+  workspaceId: string;
+  sequenceId: string;
+  contactIds: string[];
+  startAt?: Date;
+  spacingSeconds?: number;
+}): Promise<BulkEnrollResult> {
+  const base = params.startAt ?? new Date();
+  const spacing = params.spacingSeconds ?? DEFAULT_SPACING_SECONDS;
+  const result: BulkEnrollResult = { enrolled: 0, skipped: [] };
+
+  let i = 0;
+  for (const contactId of params.contactIds) {
+    const startAt = new Date(base.getTime() + i * spacing * 1000);
+    const res = await enrollContact({
+      workspaceId: params.workspaceId,
+      sequenceId: params.sequenceId,
+      contactId,
+      startAt,
+    });
+    if (res.enrolled) result.enrolled++;
+    else result.skipped.push({ contactId, reason: res.reason ?? "skipped" });
+    i++;
+  }
+  return result;
 }
 
 export interface TickSummary {
@@ -104,6 +154,8 @@ export interface TickSummary {
   completed: number;
   stopped: number;
   failed: number;
+  // Held for quiet hours (recipient outside the send window); retried later.
+  deferred: number;
 }
 
 /** Process every enrollment whose next step is due. */
@@ -123,6 +175,7 @@ export async function processDueEnrollments(limit = 50): Promise<TickSummary> {
     completed: 0,
     stopped: 0,
     failed: 0,
+    deferred: 0,
   };
 
   for (const doc of due.docs) {
@@ -142,7 +195,12 @@ export async function processDueEnrollments(limit = 50): Promise<TickSummary> {
   return summary;
 }
 
-type StepOutcome = "advanced" | "completed" | "stopped" | "failed";
+type StepOutcome =
+  | "advanced"
+  | "completed"
+  | "stopped"
+  | "failed"
+  | "deferred";
 
 async function runEnrollmentStep(enrollmentId: string): Promise<StepOutcome> {
   const adminDb = await getAdminDb();
@@ -183,48 +241,79 @@ async function runEnrollmentStep(enrollmentId: string): Promise<StepOutcome> {
   const now = new Date();
 
   if (step.type === "sms") {
-    const optedOut = await isContactOptedOut(e.contactId);
-    if (!optedOut) {
-      const from = await getWorkspacePrimaryNumber(e.workspaceId);
-      if (from && isTwilioConfigured()) {
-        const sent = await sendSms({ to: e.contactPhone, body: step.body });
-        await recordMessage({
-          workspaceId: e.workspaceId,
-          workspacePhone: from,
-          contactPhone: e.contactPhone,
-          contactId: e.contactId,
-          direction: "outbound",
-          body: step.body,
-          status: (sent.status as never) ?? "sent",
-          twilioSid: sent.sid,
-        });
-        await addContactActivityAdmin({
-          workspaceId: e.workspaceId,
-          contactId: e.contactId,
-          type: "sms",
-          body: step.body,
-          direction: "outbound",
-          createdBy: "system",
-        });
-      } else {
-        await addContactActivityAdmin({
-          workspaceId: e.workspaceId,
-          contactId: e.contactId,
-          type: "note",
-          body: `Sequence SMS skipped (SMS not configured): ${step.body}`,
-          direction: null,
-          createdBy: "system",
-        });
-      }
+    // A contact who opted out is skipped silently; still advance the sequence.
+    if (await isContactOptedOut(e.contactId)) {
+      await ref.update({ currentStep: idx + 1, nextRunAt: now, lastError: null });
+      return "advanced";
+    }
+
+    // Quiet hours: hold the send until the recipient's local window opens.
+    const win: SendWindow = seq.sendWindow ?? DEFAULT_SEND_WINDOW;
+    const tz = timezoneForPhone(e.contactPhone);
+    const sendAt = nextSendTime(tz, now, win.startHour, win.endHour);
+    if (sendAt.getTime() > now.getTime()) {
+      // Do NOT advance: re-run this same step when the window reopens.
+      await ref.update({ nextRunAt: sendAt, lastError: null });
+      return "deferred";
+    }
+
+    // Personalize from the contact, and guarantee an opt-out path on the very
+    // first SMS the contact receives in this sequence.
+    const contactSnap = await adminDb.collection("contacts").doc(e.contactId).get();
+    const contact = contactSnap.data() ?? {};
+    let body = renderTemplate(step.body, {
+      name: contact.name ?? "",
+      companyName: contact.companyName ?? null,
+      phone: e.contactPhone,
+      address: contact.address ?? null,
+    });
+    const firstSmsIdx = steps.findIndex((s) => s.type === "sms");
+    if (idx === firstSmsIdx) body = ensureOptOut(body);
+
+    const from = await getWorkspacePrimaryNumber(e.workspaceId);
+    if (from && isTwilioConfigured()) {
+      const sent = await sendSms({ to: e.contactPhone, body });
+      await recordMessage({
+        workspaceId: e.workspaceId,
+        workspacePhone: from,
+        contactPhone: e.contactPhone,
+        contactId: e.contactId,
+        direction: "outbound",
+        body,
+        status: (sent.status as never) ?? "sent",
+        twilioSid: sent.sid,
+      });
+      await addContactActivityAdmin({
+        workspaceId: e.workspaceId,
+        contactId: e.contactId,
+        type: "sms",
+        body,
+        direction: "outbound",
+        createdBy: "system",
+      });
+    } else {
+      // Dry-run: no Twilio yet. Log exactly what WOULD have gone out so a
+      // scheduled batch is fully visible on the timeline before real sends.
+      await addContactActivityAdmin({
+        workspaceId: e.workspaceId,
+        contactId: e.contactId,
+        type: "note",
+        body: `[dry-run] would text ${e.contactPhone}: ${body}`,
+        direction: null,
+        createdBy: "system",
+      });
     }
     await ref.update({ currentStep: idx + 1, nextRunAt: now, lastError: null });
     return "advanced";
   }
 
   if (step.type === "wait") {
+    // Canonical unit is hours; tolerate legacy day-based docs defensively.
+    const legacyDays = (step as { days?: number }).days;
+    const hours = step.hours ?? (legacyDays != null ? legacyDays * 24 : 0);
     await ref.update({
       currentStep: idx + 1,
-      nextRunAt: new Date(now.getTime() + step.days * DAY_MS),
+      nextRunAt: new Date(now.getTime() + hours * HOUR_MS),
       lastError: null,
     });
     return "advanced";

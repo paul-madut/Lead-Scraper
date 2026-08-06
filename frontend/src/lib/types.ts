@@ -247,10 +247,18 @@ export interface Call {
 
 export type SequenceStep =
   | { id: string; type: "sms"; body: string }
-  | { id: string; type: "wait"; days: number }
+  // Delay before the next step, in hours (a day = 24). Cold-outreach
+  // follow-ups often run on sub-day cadences, so hours are the base unit.
+  | { id: string; type: "wait"; hours: number }
   // Simple branch: if the contact has replied, jump to step `jumpTo`
   // (an index into steps, or -1 to exit); otherwise continue.
   | { id: string; type: "branch"; condition: "replied"; jumpTo: number };
+
+/** SMS quiet-hours window in the recipient's local time (24h clock). */
+export interface SendWindow {
+  startHour: number; // inclusive, 0-23
+  endHour: number; // exclusive, 1-24
+}
 
 export interface Sequence {
   id: string;
@@ -258,6 +266,9 @@ export interface Sequence {
   name: string;
   status: "draft" | "active";
   stopOnReply: boolean;
+  // Sends outside [startHour, endHour) in the recipient's local time are held
+  // until the window reopens. Defaults to 8am-9pm (TCPA) when unset.
+  sendWindow?: SendWindow;
   steps: SequenceStep[];
   createdBy: string;
   createdAt: Date;
@@ -275,6 +286,9 @@ export interface Enrollment {
   currentStep: number;
   status: EnrollmentStatus;
   startedAt: Date;
+  // When the first step is scheduled to fire (may be in the future for a
+  // scheduled enrollment). nextRunAt drives actual execution step to step.
+  scheduledStart?: Date;
   nextRunAt: Date;
   lastError: string | null;
 }

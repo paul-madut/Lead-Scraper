@@ -1,0 +1,31 @@
+name: Flows tick
+
+# Advances SMS sequence enrollments on a schedule. Vercel Hobby only allows a
+# once-daily cron, so this GitHub Action is the real driver (free + unlimited
+# on a public repo). GitHub's minimum interval is 5 min and runs are
+# best-effort (can be delayed under load) - fine for hour-scale sequences.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {} # allow manual runs for testing
+
+# Don't pile up overlapping ticks if one run is slow.
+concurrency:
+  group: flows-tick
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /api/flows/tick
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          url="https://lead-scraper-paulmaduts-projects.vercel.app/api/flows/tick"
+          code=$(curl -s -m 30 -o /tmp/body.txt -w "%{http_code}" -X POST "$url" \
+            -H "Authorization: Bearer $CRON_SECRET")
+          echo "tick -> HTTP $code"
+          head -c 500 /tmp/body.txt || true
+          # Fail the run on a non-200 so problems surface in the Actions tab.
+          test "$code" = "200"

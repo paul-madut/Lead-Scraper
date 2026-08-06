@@ -8,7 +8,7 @@
   "crons": [
     {
       "path": "/api/flows/tick",
-      "schedule": "*/2 * * * *"
+      "schedule": "0 13 * * *"
     }
   ]
 }

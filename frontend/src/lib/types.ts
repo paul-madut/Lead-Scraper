@@ -269,6 +269,10 @@ export interface Sequence {
   // Sends outside [startHour, endHour) in the recipient's local time are held
   // until the window reopens. Defaults to 8am-9pm (TCPA) when unset.
   sendWindow?: SendWindow;
+  // Numbers (E.164) this campaign sends from. Empty/unset = the workspace
+  // default (or the TWILIO_PHONE_NUMBER env). One = a fixed sender. Two or
+  // more = a pool rotated across enrollments (one sticky number per contact).
+  fromNumbers?: string[];
   steps: SequenceStep[];
   createdBy: string;
   createdAt: Date;
@@ -289,6 +293,10 @@ export interface Enrollment {
   // When the first step is scheduled to fire (may be in the future for a
   // scheduled enrollment). nextRunAt drives actual execution step to step.
   scheduledStart?: Date;
+  // The sender number assigned to this contact for the whole sequence (picked
+  // from the sequence's fromNumbers pool at enroll time). Keeps a contact's
+  // conversation on one number. Falls back to the workspace default when unset.
+  fromNumber?: string;
   nextRunAt: Date;
   lastError: string | null;
 }

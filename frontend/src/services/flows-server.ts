@@ -52,6 +52,8 @@ export async function enrollContact(params: {
   contactId: string;
   /** When the first step should fire. Defaults to now (send immediately). */
   startAt?: Date;
+  /** Position in a batch, used to rotate a multi-number sender pool evenly. */
+  rotationIndex?: number;
 }): Promise<EnrollResult> {
   const adminDb = await getAdminDb();
 
@@ -83,6 +85,29 @@ export async function enrollContact(params: {
     return { enrolled: false, reason: "Already enrolled" };
   }
 
+  // Assign a sender from the sequence's number pool: one number = fixed sender,
+  // many = rotate evenly across contacts (sticky per contact for a coherent
+  // thread). Empty pool -> null, and the engine falls back to the workspace
+  // default / env number at send time.
+  const pool: string[] = Array.isArray(seqSnap.data()?.fromNumbers)
+    ? seqSnap.data()!.fromNumbers
+    : [];
+  let fromNumber: string | null = null;
+  if (pool.length === 1) {
+    fromNumber = pool[0];
+  } else if (pool.length > 1) {
+    let idx = params.rotationIndex;
+    if (idx == null) {
+      const c = await adminDb
+        .collection("enrollments")
+        .where("sequenceId", "==", params.sequenceId)
+        .count()
+        .get();
+      idx = c.data().count;
+    }
+    fromNumber = pool[idx % pool.length];
+  }
+
   const now = new Date();
   const start = params.startAt && params.startAt > now ? params.startAt : now;
   await adminDb.collection("enrollments").add({
@@ -94,6 +119,7 @@ export async function enrollContact(params: {
     status: "active",
     startedAt: now,
     scheduledStart: start,
+    fromNumber: fromNumber ?? null,
     nextRunAt: start,
     lastError: null,
   });
@@ -140,6 +166,7 @@ export async function enrollContactsBulk(params: {
       sequenceId: params.sequenceId,
       contactId,
       startAt,
+      rotationIndex: i,
     });
     if (res.enrolled) result.enrolled++;
     else result.skipped.push({ contactId, reason: res.reason ?? "skipped" });
@@ -270,9 +297,11 @@ async function runEnrollmentStep(enrollmentId: string): Promise<StepOutcome> {
     const firstSmsIdx = steps.findIndex((s) => s.type === "sms");
     if (idx === firstSmsIdx) body = ensureOptOut(body);
 
-    const from = await getWorkspacePrimaryNumber(e.workspaceId);
+    // Prefer the number assigned to this enrollment (from the campaign's pool),
+    // falling back to the workspace default / env number.
+    const from = e.fromNumber || (await getWorkspacePrimaryNumber(e.workspaceId));
     if (from && isTwilioConfigured()) {
-      const sent = await sendSms({ to: e.contactPhone, body });
+      const sent = await sendSms({ to: e.contactPhone, body, from });
       await recordMessage({
         workspaceId: e.workspaceId,
         workspacePhone: from,
@@ -298,7 +327,7 @@ async function runEnrollmentStep(enrollmentId: string): Promise<StepOutcome> {
         workspaceId: e.workspaceId,
         contactId: e.contactId,
         type: "note",
-        body: `[dry-run] would text ${e.contactPhone}: ${body}`,
+        body: `[dry-run] would text ${e.contactPhone} from ${from ?? "(no number set)"}: ${body}`,
         direction: null,
         createdBy: "system",
       });

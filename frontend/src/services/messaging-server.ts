@@ -54,6 +54,20 @@ export async function attachNumber(params: {
   );
 }
 
+/** Detach a number from a workspace (no-op unless the workspace owns it). */
+export async function removeNumber(params: {
+  workspaceId: string;
+  phoneNumber: string;
+}): Promise<void> {
+  const adminDb = await getAdminDb();
+  const id = normalizePhone(params.phoneNumber);
+  const ref = adminDb.collection("numbers").doc(id);
+  const snap = await ref.get();
+  if (snap.exists && snap.data()?.workspaceId === params.workspaceId) {
+    await ref.delete();
+  }
+}
+
 /** The workspace's primary sending number (falls back to the env number). */
 export async function getWorkspacePrimaryNumber(
   workspaceId: string

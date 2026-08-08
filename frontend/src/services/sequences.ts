@@ -34,6 +34,7 @@ function toSequence(snap: QueryDocumentSnapshot<DocumentData>): Sequence {
     status: d.status ?? "draft",
     stopOnReply: d.stopOnReply ?? true,
     sendWindow: d.sendWindow ?? undefined,
+    fromNumbers: Array.isArray(d.fromNumbers) ? d.fromNumbers : [],
     steps: Array.isArray(d.steps) ? d.steps : [],
     createdBy: d.createdBy ?? "",
     createdAt: toDate(d.createdAt),
@@ -82,6 +83,7 @@ export async function updateSequence(
     status?: "draft" | "active";
     stopOnReply?: boolean;
     sendWindow?: SendWindow;
+    fromNumbers?: string[];
     steps?: SequenceStep[];
   }
 ): Promise<void> {
@@ -158,6 +160,7 @@ export async function listContactEnrollments(contactId: string): Promise<Enrollm
       status: d.status ?? "active",
       startedAt: toDate(d.startedAt),
       scheduledStart: d.scheduledStart ? toDate(d.scheduledStart) : undefined,
+      fromNumber: d.fromNumber ?? undefined,
       nextRunAt: toDate(d.nextRunAt),
       lastError: d.lastError ?? null,
     };

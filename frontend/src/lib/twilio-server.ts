@@ -70,6 +70,8 @@ export interface SentSms {
 export async function sendSms(params: {
   to: string;
   body: string;
+  /** Explicit sender number (E.164). Overrides the Messaging Service / env. */
+  from?: string;
   statusCallback?: string;
 }): Promise<SentSms> {
   const client = getTwilioClient();
@@ -82,7 +84,10 @@ export async function sendSms(params: {
   } = { to: params.to, body: params.body };
 
   if (params.statusCallback) base.statusCallback = params.statusCallback;
-  if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
+  if (params.from) {
+    // A campaign / per-contact number wins over the Messaging Service default.
+    base.from = params.from;
+  } else if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
     base.messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
   } else {
     base.from = process.env.TWILIO_PHONE_NUMBER;

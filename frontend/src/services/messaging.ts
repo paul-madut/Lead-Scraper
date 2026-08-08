@@ -137,3 +137,19 @@ export async function attachWorkspaceNumber(
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Failed to attach number");
 }
+
+export async function removeWorkspaceNumber(
+  idToken: string,
+  phoneNumber: string
+): Promise<void> {
+  const res = await fetch("/api/numbers/remove", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ phoneNumber }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to remove number");
+}

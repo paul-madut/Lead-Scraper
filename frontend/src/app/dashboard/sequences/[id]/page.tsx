@@ -10,14 +10,22 @@ import {
   GitBranch,
   Trash2,
   Plus,
+  Phone,
 } from "lucide-react";
 import { getSequence, updateSequence, deleteSequence } from "@/services/sequences";
+import { subscribeWorkspaceNumbers } from "@/services/messaging";
+import { useWorkspace } from "@/components/WorkspaceProvider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { SUPPORTED_MERGE_FIELDS } from "@/lib/sms-template";
-import type { Sequence, SendWindow, SequenceStep } from "@/lib/types";
+import type {
+  Sequence,
+  SendWindow,
+  SequenceStep,
+  WorkspaceNumber,
+} from "@/lib/types";
 
 let stepCounter = 0;
 const newId = () => `s${Date.now()}_${stepCounter++}`;
@@ -35,15 +43,23 @@ const defaultUnit = (hours: number): "hours" | "days" =>
 export default function SequenceBuilderPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { workspaceId } = useWorkspace();
   const [seq, setSeq] = useState<Sequence | null>(null);
   const [steps, setSteps] = useState<SequenceStep[]>([]);
   const [name, setName] = useState("");
   const [stopOnReply, setStopOnReply] = useState(true);
   const [sendWindow, setSendWindow] = useState<SendWindow>(DEFAULT_SEND_WINDOW);
+  const [fromNumbers, setFromNumbers] = useState<string[]>([]);
+  const [numbers, setNumbers] = useState<WorkspaceNumber[]>([]);
   const [waitUnit, setWaitUnit] = useState<Record<string, "hours" | "days">>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    return subscribeWorkspaceNumbers(workspaceId, setNumbers);
+  }, [workspaceId]);
 
   useEffect(() => {
     let ignore = false;
@@ -56,6 +72,7 @@ export default function SequenceBuilderPage() {
         setName(s.name);
         setStopOnReply(s.stopOnReply);
         setSendWindow(s.sendWindow ?? DEFAULT_SEND_WINDOW);
+        setFromNumbers(s.fromNumbers ?? []);
       })
       .finally(() => !ignore && setLoading(false));
     return () => {
@@ -99,14 +116,20 @@ export default function SequenceBuilderPage() {
     setSteps((prev) => prev.filter((s) => s.id !== id));
   };
 
-  const saveSteps = () => persist({ steps, name, stopOnReply, sendWindow });
+  const saveSteps = () =>
+    persist({ steps, name, stopOnReply, sendWindow, fromNumbers });
 
   const toggleActive = () => {
     if (!seq) return;
     const next = seq.status === "active" ? "draft" : "active";
     setSeq({ ...seq, status: next });
-    persist({ status: next, steps, name, stopOnReply, sendWindow });
+    persist({ status: next, steps, name, stopOnReply, sendWindow, fromNumbers });
   };
+
+  const toggleNumber = (phone: string) =>
+    setFromNumbers((prev) =>
+      prev.includes(phone) ? prev.filter((p) => p !== phone) : [...prev, phone]
+    );
 
   const onDelete = async () => {
     if (!params?.id) return;
@@ -211,6 +234,51 @@ export default function SequenceBuilderPage() {
               Sends outside this window are held until it reopens. 8-21 keeps you
               inside the TCPA 8am-9pm rule.
             </p>
+          </div>
+
+          <div className="space-y-1.5 border-t pt-4">
+            <span className="flex items-center gap-1.5 text-sm font-medium">
+              <Phone className="h-4 w-4 text-primary" /> Send from
+            </span>
+            {numbers.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No numbers attached. Add one under{" "}
+                <Link href="/dashboard/numbers" className="text-primary hover:underline">
+                  Numbers
+                </Link>{" "}
+                - until then this campaign uses your default number.
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {numbers.map((n) => {
+                    const on = fromNumbers.includes(n.phoneNumber);
+                    return (
+                      <button
+                        key={n.id}
+                        type="button"
+                        onClick={() => toggleNumber(n.phoneNumber)}
+                        className={
+                          on
+                            ? "rounded-lg border border-primary bg-primary/10 px-3 py-1.5 text-sm"
+                            : "rounded-lg border bg-card px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+                        }
+                      >
+                        {n.label ? `${n.label} · ` : ""}
+                        {n.phoneNumber}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {fromNumbers.length === 0
+                    ? "None selected - uses your default number."
+                    : fromNumbers.length === 1
+                      ? "All contacts send from this number."
+                      : `Rotated across ${fromNumbers.length} numbers - one sticky number per contact.`}
+                </p>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

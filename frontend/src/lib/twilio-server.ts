@@ -4,11 +4,17 @@
 import twilio from "twilio";
 
 export function isTwilioConfigured(): boolean {
-  return Boolean(
+  // Either a scoped API key (preferred) or the master Auth Token authenticates
+  // the REST client; a Messaging Service or a from-number is the sender.
+  const hasCreds = Boolean(
     process.env.TWILIO_ACCOUNT_SID &&
-      process.env.TWILIO_AUTH_TOKEN &&
-      (process.env.TWILIO_MESSAGING_SERVICE_SID || process.env.TWILIO_PHONE_NUMBER)
+      ((process.env.TWILIO_API_KEY && process.env.TWILIO_API_SECRET) ||
+        process.env.TWILIO_AUTH_TOKEN)
   );
+  const hasSender = Boolean(
+    process.env.TWILIO_MESSAGING_SERVICE_SID || process.env.TWILIO_PHONE_NUMBER
+  );
+  return hasCreds && hasSender;
 }
 
 export function isVoiceConfigured(): boolean {
@@ -41,10 +47,19 @@ export function generateVoiceToken(identity: string): string {
 }
 
 export function getTwilioClient() {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  if (!sid || !token) throw new Error("Twilio is not configured");
-  return twilio(sid, token);
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const apiKey = process.env.TWILIO_API_KEY;
+  const apiSecret = process.env.TWILIO_API_SECRET;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  if (!accountSid) throw new Error("Twilio is not configured");
+  // Prefer a scoped, revocable API key over the master Auth Token.
+  if (apiKey && apiSecret) {
+    return twilio(apiKey, apiSecret, { accountSid });
+  }
+  if (authToken) {
+    return twilio(accountSid, authToken);
+  }
+  throw new Error("Twilio is not configured");
 }
 
 export interface SentSms {

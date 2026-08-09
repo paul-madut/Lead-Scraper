@@ -1,5 +1,5 @@
 // lib/crm.ts - CRM constants and helpers shared client + server.
-import type { Business } from "@/lib/types";
+import type { Business, CallStatus } from "@/lib/types";
 
 export interface PipelineStage {
   id: string;
@@ -26,6 +26,32 @@ export function stageLabel(id: string): string {
 
 export function stageTone(id: string): PipelineStage["tone"] {
   return PIPELINE_STAGES.find((s) => s.id === id)?.tone ?? "muted";
+}
+
+// --- Call-blitz disposition (separate from the sales pipeline) ---
+export interface CallStatusOption {
+  id: CallStatus;
+  label: string;
+  tone: "muted" | "default" | "secondary" | "success";
+}
+
+export const CALL_STATUSES: CallStatusOption[] = [
+  { id: "todo", label: "To call", tone: "muted" },
+  { id: "called", label: "Called", tone: "secondary" },
+  { id: "no_answer", label: "No answer", tone: "muted" },
+  { id: "callback", label: "Callback", tone: "default" },
+  { id: "not_interested", label: "Not interested", tone: "muted" },
+  { id: "booked", label: "Booked", tone: "success" },
+];
+
+export const DEFAULT_CALL_STATUS: CallStatus = "todo";
+
+export function callStatusLabel(id: string): string {
+  return CALL_STATUSES.find((s) => s.id === id)?.label ?? id;
+}
+
+export function callStatusTone(id: string): CallStatusOption["tone"] {
+  return CALL_STATUSES.find((s) => s.id === id)?.tone ?? "muted";
 }
 
 /** Shape a scraped Business into the contact fields (server + client share this). */

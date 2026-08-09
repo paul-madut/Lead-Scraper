@@ -121,6 +121,15 @@ export interface Membership {
 }
 
 /** A CRM contact. Promoted from a scraped Business or created manually. */
+/** Call-blitz disposition, separate from the sales pipeline stage. */
+export type CallStatus =
+  | "todo"
+  | "called"
+  | "no_answer"
+  | "callback"
+  | "not_interested"
+  | "booked";
+
 export interface Contact {
   id: string;
   workspaceId: string;
@@ -136,6 +145,7 @@ export interface Contact {
   totalReviews: number | null;
   tags: string[];
   stage: string;
+  callStatus: CallStatus;
   ownerId: string;
   // Compliance - carried from day one, not bolted on later.
   smsConsent: ConsentState;

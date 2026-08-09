@@ -17,11 +17,17 @@ import {
   type Timestamp,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
-import { DEFAULT_STAGE, contactFieldsFromBusiness } from "@/lib/crm";
+import {
+  DEFAULT_CALL_STATUS,
+  DEFAULT_STAGE,
+  callStatusLabel,
+  contactFieldsFromBusiness,
+} from "@/lib/crm";
 import type {
   Activity,
   ActivityType,
   Business,
+  CallStatus,
   ConsentState,
   Contact,
 } from "@/lib/types";
@@ -46,6 +52,7 @@ function toContact(snap: QueryDocumentSnapshot<DocumentData>): Contact {
     totalReviews: d.totalReviews ?? null,
     tags: Array.isArray(d.tags) ? d.tags : [],
     stage: d.stage ?? DEFAULT_STAGE,
+    callStatus: d.callStatus ?? DEFAULT_CALL_STATUS,
     ownerId: d.ownerId ?? "",
     smsConsent: d.smsConsent ?? "unknown",
     callConsent: d.callConsent ?? "unknown",
@@ -107,6 +114,7 @@ export async function promoteBusinessToContact(
     ...contactFieldsFromBusiness(business),
     tags: [],
     stage: DEFAULT_STAGE,
+    callStatus: DEFAULT_CALL_STATUS,
     ownerId: userId,
     smsConsent: "unknown",
     callConsent: "unknown",
@@ -138,6 +146,25 @@ export async function updateContactStage(
     userId,
     "stage_change",
     `Stage changed to ${stage}`
+  );
+}
+
+export async function setCallStatus(
+  contact: Contact,
+  userId: string,
+  status: CallStatus
+): Promise<void> {
+  await updateDoc(doc(db, "contacts", contact.id), {
+    callStatus: status,
+    updatedAt: serverTimestamp(),
+    lastActivityAt: serverTimestamp(),
+  });
+  await addActivity(
+    contact.workspaceId,
+    contact.id,
+    userId,
+    "call",
+    `Marked "${callStatusLabel(status)}"`
   );
 }
 

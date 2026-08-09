@@ -5,14 +5,19 @@ import Link from "next/link";
 import { Users, Search, Phone, Mail, ChevronRight, Workflow } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useWorkspace } from "@/components/WorkspaceProvider";
-import { listContacts } from "@/services/contacts";
+import { listContacts, setCallStatus } from "@/services/contacts";
 import { enrollBulkApi, listSequences } from "@/services/sequences";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PIPELINE_STAGES, stageLabel, stageTone } from "@/lib/crm";
-import type { Contact, Sequence } from "@/lib/types";
+import {
+  CALL_STATUSES,
+  PIPELINE_STAGES,
+  stageLabel,
+  stageTone,
+} from "@/lib/crm";
+import type { CallStatus, Contact, Sequence } from "@/lib/types";
 
 // Local datetime-local string for tomorrow at 9am (a sensible default start).
 function tomorrow9am(): string {
@@ -33,6 +38,7 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
+  const [callFilter, setCallFilter] = useState<string>("all");
 
   // Bulk-enroll state.
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -67,6 +73,7 @@ export default function ContactsPage() {
     const needle = q.trim().toLowerCase();
     return contacts.filter((c) => {
       if (stageFilter !== "all" && c.stage !== stageFilter) return false;
+      if (callFilter !== "all" && (c.callStatus ?? "todo") !== callFilter) return false;
       if (!needle) return true;
       return (
         c.name.toLowerCase().includes(needle) ||
@@ -74,7 +81,29 @@ export default function ContactsPage() {
         (c.address ?? "").toLowerCase().includes(needle)
       );
     });
-  }, [contacts, q, stageFilter]);
+  }, [contacts, q, stageFilter, callFilter]);
+
+  const toCallCount = useMemo(
+    () => contacts.filter((c) => (c.callStatus ?? "todo") === "todo").length,
+    [contacts]
+  );
+
+  const onSetCallStatus = async (contact: Contact, status: CallStatus) => {
+    if (!user) return;
+    // Optimistic: update the row immediately, then persist.
+    setContacts((prev) =>
+      prev.map((c) => (c.id === contact.id ? { ...c, callStatus: status } : c))
+    );
+    try {
+      await setCallStatus(contact, user.uid, status);
+    } catch {
+      setContacts((prev) =>
+        prev.map((c) =>
+          c.id === contact.id ? { ...c, callStatus: contact.callStatus } : c
+        )
+      );
+    }
+  };
 
   const activeSequences = sequences.filter((s) => s.status === "active");
   const allFilteredSelected =
@@ -162,6 +191,27 @@ export default function ContactsPage() {
             />
           ))}
         </div>
+      </div>
+
+      {/* Call-status filter - for working a call list. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-xs font-medium text-muted-foreground">
+          Calls:
+        </span>
+        <FilterChip label="All" active={callFilter === "all"} onClick={() => setCallFilter("all")} />
+        <FilterChip
+          label={`To call (${toCallCount})`}
+          active={callFilter === "todo"}
+          onClick={() => setCallFilter("todo")}
+        />
+        {CALL_STATUSES.filter((s) => s.id !== "todo").map((s) => (
+          <FilterChip
+            key={s.id}
+            label={s.label}
+            active={callFilter === s.id}
+            onClick={() => setCallFilter(s.id)}
+          />
+        ))}
       </div>
 
       {/* Bulk-enroll bar - appears once contacts are selected. */}
@@ -322,7 +372,25 @@ export default function ContactsPage() {
                     </div>
                   </div>
                   <Badge variant={stageTone(c.stage)}>{stageLabel(c.stage)}</Badge>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Link>
+                <select
+                  value={c.callStatus ?? "todo"}
+                  onChange={(e) => onSetCallStatus(c, e.target.value as CallStatus)}
+                  aria-label={`Call status for ${c.name}`}
+                  className="shrink-0 rounded-lg border bg-card px-2 py-1.5 text-xs font-medium outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                >
+                  {CALL_STATUSES.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                <Link
+                  href={`/dashboard/contacts/${c.id}`}
+                  aria-label={`Open ${c.name}`}
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronRight className="h-4 w-4" />
                 </Link>
               </div>
             ))}

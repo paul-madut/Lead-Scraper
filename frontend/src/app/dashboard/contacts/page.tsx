@@ -39,6 +39,7 @@ export default function ContactsPage() {
   const [q, setQ] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [callFilter, setCallFilter] = useState<string>("all");
+  const [noWebsiteOnly, setNoWebsiteOnly] = useState(false);
 
   // Bulk-enroll state.
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -74,6 +75,7 @@ export default function ContactsPage() {
     return contacts.filter((c) => {
       if (stageFilter !== "all" && c.stage !== stageFilter) return false;
       if (callFilter !== "all" && (c.callStatus ?? "todo") !== callFilter) return false;
+      if (noWebsiteOnly && c.website) return false;
       if (!needle) return true;
       return (
         c.name.toLowerCase().includes(needle) ||
@@ -81,10 +83,15 @@ export default function ContactsPage() {
         (c.address ?? "").toLowerCase().includes(needle)
       );
     });
-  }, [contacts, q, stageFilter, callFilter]);
+  }, [contacts, q, stageFilter, callFilter, noWebsiteOnly]);
 
   const toCallCount = useMemo(
     () => contacts.filter((c) => (c.callStatus ?? "todo") === "todo").length,
+    [contacts]
+  );
+
+  const noWebsiteCount = useMemo(
+    () => contacts.filter((c) => !c.website).length,
     [contacts]
   );
 
@@ -212,6 +219,12 @@ export default function ContactsPage() {
             onClick={() => setCallFilter(s.id)}
           />
         ))}
+        <span className="mx-1 h-4 w-px self-center bg-border" aria-hidden />
+        <FilterChip
+          label={`No website (${noWebsiteCount})`}
+          active={noWebsiteOnly}
+          onClick={() => setNoWebsiteOnly((v) => !v)}
+        />
       </div>
 
       {/* Bulk-enroll bar - appears once contacts are selected. */}

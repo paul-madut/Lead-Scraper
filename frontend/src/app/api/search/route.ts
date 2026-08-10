@@ -27,6 +27,9 @@ const SearchSchema = z.object({
     .min(1)
     .max(PRICING_CONFIG.MAX_RESULTS_LIMIT)
     .default(20),
+  // Deliver (and charge for) only businesses without a website. Everything
+  // scraped is still marked seen so "load more" pages forward correctly.
+  noWebsiteOnly: z.boolean().optional().default(false),
   idempotencyKey: z.string().max(100).optional(),
 });
 
@@ -48,7 +51,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       { status: 400 }
     );
   }
-  const { keyword, location, radius, max_results, idempotencyKey } = parsed.data;
+  const { keyword, location, radius, max_results, noWebsiteOnly, idempotencyKey } =
+    parsed.data;
 
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
@@ -99,6 +103,13 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
+  // When filtering to no-website leads, deliver + charge only those, but still
+  // mark every scraped place_id as seen (attemptedPlaceIds is unchanged) so a
+  // "load more" pages past the ones that do have a site instead of re-scraping.
+  const deliverable = noWebsiteOnly
+    ? result.businesses.filter((b) => !b.website)
+    : result.businesses;
+
   // Charge + record the cursor atomically. Only leads still new at commit time
   // are billed, so a crash cannot split billing from the cursor and a
   // concurrent search cannot re-charge for the same leads.
@@ -110,7 +121,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       keyword,
       location,
       radius,
-      scraped: result.businesses,
+      scraped: deliverable,
       attemptedPlaceIds: result.attemptedPlaceIds,
       hasMoreUnseen: result.hasMoreUnseen,
       idempotencyKey,

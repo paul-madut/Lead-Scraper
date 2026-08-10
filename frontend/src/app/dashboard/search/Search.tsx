@@ -13,6 +13,7 @@ export interface SearchParams {
   location: string;
   radiusKm: number;
   maxResults: number;
+  noWebsiteOnly: boolean;
 }
 
 export default function SearchForm({
@@ -28,6 +29,7 @@ export default function SearchForm({
   const [location, setLocation] = useState("");
   const [radiusKm, setRadiusKm] = useState("5");
   const [maxResults, setMaxResults] = useState("20");
+  const [noWebsiteOnly, setNoWebsiteOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const maxResultsNum = useMemo(() => {
@@ -49,6 +51,7 @@ export default function SearchForm({
       location: location.trim(),
       radiusKm: Number.isFinite(radius) ? Math.min(Math.max(radius, 1), 50) : 5,
       maxResults: maxResultsNum,
+      noWebsiteOnly,
     });
   };
 
@@ -96,6 +99,20 @@ export default function SearchForm({
           />
         </label>
       </div>
+
+      <label className="flex flex-wrap items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={noWebsiteOnly}
+          onChange={(e) => setNoWebsiteOnly(e.target.checked)}
+          disabled={isSearching}
+          className="h-4 w-4 rounded border-input"
+        />
+        <span className="font-medium">Only businesses without a website</span>
+        <span className="text-xs text-muted-foreground">
+          - your hottest prospects if you sell sites; you&apos;re only charged for the no-site leads
+        </span>
+      </label>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/40 px-4 py-3 text-sm">
         <span className="flex items-center gap-2 text-muted-foreground">

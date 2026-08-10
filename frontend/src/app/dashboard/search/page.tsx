@@ -85,6 +85,7 @@ export default function SearchPage() {
             location: params.location,
             radius: params.radiusKm * 1000,
             max_results: params.maxResults,
+            noWebsiteOnly: params.noWebsiteOnly,
             idempotencyKey:
               typeof crypto !== "undefined" && crypto.randomUUID
                 ? crypto.randomUUID()
